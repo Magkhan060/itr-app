@@ -1,0 +1,22 @@
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: itr-app-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: itr-app
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - itr-network
+
+volumes:
+  mongodb_data:
+  mongodb_config:
+
+networks:
+  itr-network:
+    driver: bridge
