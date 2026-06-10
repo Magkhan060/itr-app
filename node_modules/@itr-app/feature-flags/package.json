@@ -1,0 +1,6 @@
+{
+  "name": "@itr-app/feature-flags",
+  "version": "1.0.0",
+  "main": "flags.js",
+  "type": "module"
+}
