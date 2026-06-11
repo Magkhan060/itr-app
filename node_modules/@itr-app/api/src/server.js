@@ -7,7 +7,7 @@ import { errorHandler } from "./middleware/error.middleware.js";
 const app = express();
 
 // ── Middleware ──────────────────────────────────────────────
-app.use(cors({ origin: "[localhost](http://localhost:5173)", credentials: true }));
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -17,8 +17,11 @@ app.get("/health", (req, res) => {
 });
 
 // ── Routes (add as modules are built) ───────────────────────
-// import authRoutes from "./modules/auth/auth.routes.js";
-// app.use("/api/auth", authRoutes);
+import authRoutes from "./modules/auth/auth.routes.js";
+app.use("/api/auth", authRoutes);
+
+import taxRoutes from "./modules/tax-engine/engine.routes.js";
+app.use("/api/tax", taxRoutes);
 
 // ── Error handler ───────────────────────────────────────────
 app.use(errorHandler);
@@ -29,3 +32,6 @@ connectDB().then(() => {
     console.log(`🚀 API running at http://localhost:${env.port}`);
   });
 });
+
+
+

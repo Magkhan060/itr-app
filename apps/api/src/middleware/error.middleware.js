@@ -1,8 +1,13 @@
 import { error } from "../utils/response.util.js";
+import { ZodError } from "zod";
 
 export const errorHandler = (err, req, res, next) => {
   console.error(`[Error] ${err.message}`);
 
+  if (err instanceof ZodError) {
+    const message = err.errors.map((e) => e.message).join(", ");
+    return error(res, message, 400, "VALIDATION_ERROR");
+  }
   if (err.name === "ValidationError") {
     return error(res, err.message, 400, "VALIDATION_ERROR");
   }
