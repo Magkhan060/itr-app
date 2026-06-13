@@ -70,14 +70,14 @@ export default function TaxCalculator() {
       dataIndex: "old",
       key:       "old",
       align:     "right",
-      render:    (val) => <Text>{fmt(val)}</Text>,
+      render:    (val) => (<Text>{typeof val === "string" ? val : fmt(val)}</Text>),
     },
     {
       title:     "New Regime",
       dataIndex: "new",
       key:       "new",
       align:     "right",
-      render:    (val) => <Text>{fmt(val)}</Text>,
+      render:    (val) => (<Text>{typeof val === "string" ? val : fmt(val)}</Text>),
     },
   ];
 

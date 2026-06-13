@@ -12,6 +12,9 @@ import { useAuthStore } from "../../../store/index.js";
 import { useFilingStore } from "../../../store/index.js";
 import { compareRegimes } from "../../../services/tax.service.js";
 import { DEDUCTION_LIMITS, METRO_CITIES } from "@itr-app/shared-types";
+import { saveDraft, submitITR1 } from "../../../services/filing.service.js";
+import { useNavigate } from "react-router-dom";
+
 
 const { Title, Text } = Typography;
 const { Option }      = Select;
@@ -36,15 +39,81 @@ export default function ITR1Filing() {
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState(null);
 
-  const next = async () => {
-    try {
-      await form.validateFields();
-      const values = form.getFieldsValue();
-      updateFiling(`step${current}`, values);
-      if (current === 2) await computeTaxSummary(values);
-      setCurrent((c) => c + 1);
-    } catch (_) {}
-  };
+const navigate = useNavigate();
+const [submitLoading, setSubmitLoading] = useState(false);
+const [submitted, setSubmitted]         = useState(null);
+
+const next = async () => {
+  try {
+    await form.validateFields();
+    const values = form.getFieldsValue();
+    updateFiling(`step${current}`, values);
+
+    // Auto-save draft on each step
+    await saveDraft({
+      itrType:        "ITR-1",
+      assessmentYear: "2026-27",
+      step:           current,
+      data:           { ...filingData, [`step${current}`]: values },
+    }).catch(() => {}); // Silent — don't block navigation on draft save failure
+
+    if (current === 2) await computeTaxSummary(values);
+    setCurrent((c) => c + 1);
+  } catch (_) {}
+};
+
+const handleSubmit = async () => {
+  if (!taxResult) return;
+  setSubmitLoading(true);
+  try {
+    const s0 = filingData.step0 || {};
+    const s1 = filingData.step1 || {};
+    const s2 = filingData.step2 || {};
+
+    const payload = {
+      selectedRegime: taxResult.betterRegime === "equal" ? "new" : taxResult.betterRegime,
+      personalInfo: {
+        fullName:          s0.fullName,
+        pan:               s0.pan || user?.pan,
+        dateOfBirth:       s0.dateOfBirth?.format?.("YYYY-MM-DD") || null,
+        gender:            s0.gender,
+        residentialStatus: s0.residentialStatus || "ROR",
+        city:              s0.city,
+        employerName:      s0.employerName,
+        employerTAN:       s0.employerTAN,
+        bankAccountNo:     s0.bankAccountNo,
+        ifscCode:          s0.ifscCode,
+      },
+      incomeDetails: {
+        basicSalary:      s1.basicSalary      || 0,
+        hra_received:     s1.hra_received     || 0,
+        specialAllowance: s1.specialAllowance || 0,
+        bonus:            s1.bonus            || 0,
+        tdsDeducted:      s1.tdsDeducted      || 0,
+        interestIncome:   s1.interestIncome   || 0,
+        otherIncome:      s1.otherIncome      || 0,
+      },
+      deductions: {
+        sec80C:           s2.sec80C           || 0,
+        sec80CCD1B:       s2.sec80CCD1B       || 0,
+        sec80D_self:      s2.sec80D_self      || 0,
+        sec80D_parents:   s2.sec80D_parents   || 0,
+        homeLoanInterest: s2.homeLoanInterest || 0,
+        hra_exempt:       s2.hra_exempt       || 0,
+        lta:              s2.lta              || 0,
+        sec80TTA_TTB:     s2.sec80TTA_TTB     || 0,
+        sec80G:           s2.sec80G           || 0,
+      },
+    };
+
+    const res = await submitITR1(payload);
+    setSubmitted(res.data);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setSubmitLoading(false);
+  }
+};
 
   const prev = () => setCurrent((c) => c - 1);
 
@@ -374,6 +443,37 @@ export default function ITR1Filing() {
     <DeductionsForm key="2" />,
     <TaxSummary key="3" />,
   ];
+  
+if (submitted) {
+  return (
+    <Result
+      status="success"
+      title="ITR-1 Filed Successfully!"
+      subTitle={
+        <div>
+          <p>Acknowledgement No: <strong>{submitted.acknowledgementNo}</strong></p>
+          <p>Assessment Year: <strong>AY 2026-27</strong></p>
+          <p>Total Tax Payable:{" "}
+            <strong style={{ color: "#1677ff" }}>
+              {fmt(submitted.taxSummary?.totalTax)}
+            </strong>
+          </p>
+          <p style={{ marginTop: 8, color: "#8c8c8c", fontSize: 12 }}>
+            Please save your acknowledgement number for future reference.
+          </p>
+        </div>
+      }
+      extra={[
+        <Button type="primary" key="dashboard" onClick={() => navigate("/dashboard")}>
+          Go to Dashboard
+        </Button>,
+        <Button key="download" disabled>
+          Download ITR-V (Coming Soon)
+        </Button>,
+      ]}
+    />
+  );
+}
 
   return (
     <div>
@@ -427,10 +527,13 @@ export default function ITR1Filing() {
                 type="primary"
                 icon={<CheckCircleOutlined />}
                 size="large"
-                onClick={() => alert("e-Filing integration coming soon!")}
+                loading={submitLoading}
+                onClick={handleSubmit}
+                disabled={!taxResult}
               >
                 Submit ITR-1
               </Button>
+
             )}
           </Col>
         </Row>

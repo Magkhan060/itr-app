@@ -11,6 +11,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/index.js";
 import { FLAGS } from "../../config/features.config.js";
+import { useEffect, useState } from "react";
+import { getMyFilings } from "../../services/filing.service.js";
+
 
 const { Title, Text } = Typography;
 
@@ -36,9 +39,52 @@ const columns = [
   },
 ];
 
+
 export default function Dashboard() {
   const { user }  = useAuthStore();
   const navigate  = useNavigate();
+  
+  const [filings, setFilings]   = useState([]);
+  const [filingsLoading, setFilingsLoading] = useState(false);
+
+  useEffect(() => {
+    setFilingsLoading(true);
+    getMyFilings()
+      .then((res) => setFilings(res.data || []))
+      .catch(() => {})
+      .finally(() => setFilingsLoading(false));
+  }, []);
+
+  const filingColumns = [
+    { title: "ITR Type",        dataIndex: "itrType",         key: "itrType"  },
+    { title: "Assessment Year", dataIndex: "assessmentYear",  key: "ay"       },
+    {
+      title:  "Status",
+      dataIndex: "status",
+      key:    "status",
+      render: (s) => (
+        <Tag color={
+          s === "submitted" ? "blue"  :
+          s === "verified"  ? "green" :
+          s === "draft"     ? "default" : "purple"
+        }>
+          {s?.toUpperCase()}
+        </Tag>
+      ),
+    },
+    {
+      title:     "Acknowledgement",
+      dataIndex: "acknowledgementNo",
+      key:       "ack",
+      render:    (v) => v || "—",
+    },
+    {
+      title:  "Filed On",
+      dataIndex: "submittedAt",
+      key:    "date",
+      render: (d) => d ? new Date(d).toLocaleDateString("en-IN") : "—",
+    },
+  ];
 
   return (
     <div>
@@ -140,6 +186,27 @@ export default function Dashboard() {
           </Card>
         </Col>
       </Row>
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+  <Col span={24}>
+    <Card
+      title="My Filings"
+      bordered={false}
+      style={{ borderRadius: 10 }}
+      extra={<Tag color="blue">AY 2026-27</Tag>}
+    >
+      <Table
+        dataSource={filings}
+        columns={filingColumns}
+        rowKey="_id"
+        loading={filingsLoading}
+        pagination={false}
+        size="middle"
+        locale={{ emptyText: "No filings yet. Start with ITR-1." }}
+      />
+    </Card>
+  </Col>
+</Row>
+
     </div>
   );
 }

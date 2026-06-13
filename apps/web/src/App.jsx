@@ -27,6 +27,8 @@ const PublicRoute = ({ children }) => {
   return !token ? children : <Navigate to="/dashboard" replace />;
 };
 
+const Profile = React.lazy(() => import("./pages/profile/Profile.jsx"));
+
 export default function App() {
   return (
     <React.Suspense fallback={
@@ -46,7 +48,7 @@ export default function App() {
           <Route path="*"             element={<NotFound />} />
           <Route path="calculator"       element={<TaxCalculator />} />
           <Route path="filing/itr1"      element={<ITR1Filing />} />
-
+          <Route path="profile" element={<Profile />} />
         </Route>
         
       </Routes>
