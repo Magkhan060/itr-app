@@ -28,6 +28,7 @@ const PublicRoute = ({ children }) => {
 };
 
 const Profile = React.lazy(() => import("./pages/profile/Profile.jsx"));
+const AdvanceTax = React.lazy(() => import("./pages/calculator/AdvanceTax.jsx"));
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="calculator"       element={<TaxCalculator />} />
           <Route path="filing/itr1"      element={<ITR1Filing />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="advance-tax" element={<AdvanceTax />} />
         </Route>
         
       </Routes>

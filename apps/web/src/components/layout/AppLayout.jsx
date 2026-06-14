@@ -9,6 +9,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   FileDoneOutlined,
+  CalendarOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuthStore } from "../../store/index.js";
@@ -44,6 +45,12 @@ const NAV_ITEMS = [
     icon: <CalculatorOutlined />,
     label: "Tax Calculator",
     flag: "REGIME_COMPARISON",
+  },
+  {
+  key:   "/advance-tax",
+  icon:  <CalendarOutlined />,
+  label: "Advance Tax",
+  flag:  "ADVANCE_TAX_CALC",
   },
   {
     key: "/profile",
