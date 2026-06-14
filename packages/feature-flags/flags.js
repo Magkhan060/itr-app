@@ -15,7 +15,7 @@ export const FLAGS = {
   REGIME_COMPARISON: { enabled: true,  label: "Old vs New Regime Compare" },
   ADVANCE_TAX_CALC:  { enabled: true,  label: "Advance Tax Calculator"    },
   DOCUMENT_VAULT:    { enabled: false, label: "Document Vault"            },
-  REFUND_TRACKER:    { enabled: false, label: "Refund Status Tracker"     },
+  REFUND_TRACKER:    { enabled: true, label: "Refund Status Tracker"     },
   PREFILL_ITD:       { enabled: false, label: "Pre-fill from ITD Portal"  },
 };
 

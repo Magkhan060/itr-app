@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Row, Col, Card, Typography, Descriptions, Tag,
   Upload, Button, Table, Alert, message, Popconfirm,
-  Spin, Progress, Divider, Space, Badge,
+  Spin, Progress, Divider, Space, Badge, Form, Select,
 } from "antd";
 import {
   UserOutlined, UploadOutlined, FileTextOutlined,
@@ -40,25 +40,30 @@ export default function Profile() {
 
   useEffect(() => { fetchDocuments(); }, []);
 
+  // Add state for selected doc type
+const [docType, setDocType] = useState("form16");
+
+// Replace handleUpload
   const handleUpload = async ({ file }) => {
     setUploading(true);
     setParsedResult(null);
     try {
       const formData = new FormData();
       formData.append("document", file);
-      formData.append("type", "form16");
+      formData.append("type", docType);
       formData.append("financialYear", "2025-26");
       const res = await uploadDocument(formData);
-      message.success("Form 16 uploaded and parsed!");
-      setParsedResult(res.data?.parsedData);
+      message.success(`${docType === "form16" ? "Form 16" : "Form 26AS"} uploaded and parsed!`);
+      setParsedResult({ type: docType, ...res.data?.parsedData });
       fetchDocuments();
     } catch (err) {
       message.error(err.message || "Upload failed");
     } finally {
       setUploading(false);
     }
-    return false; // Prevent default upload
+    return false;
   };
+
 
   const handleDelete = async (id) => {
     try {
@@ -222,6 +227,15 @@ export default function Profile() {
                 showIcon
                 style={{ marginBottom: 16, borderRadius: 8 }}
               />
+
+              <Form.Item label="Document Type" style={{ marginBottom: 12 }}>
+              <Select value={docType} onChange={setDocType} style={{ width: "100%" }}>
+                <Select.Option value="form16">Form 16 (Salary TDS Certificate)</Select.Option>
+                <Select.Option value="form26as">Form 26AS (Tax Credit Statement)</Select.Option>
+                <Select.Option value="ais">AIS (Annual Information Statement)</Select.Option>
+                <Select.Option value="other">Other Document</Select.Option>
+              </Select>
+            </Form.Item>                       
 
               <Dragger
                 name="document"
