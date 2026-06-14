@@ -30,6 +30,8 @@ const PublicRoute = ({ children }) => {
 const Profile = React.lazy(() => import("./pages/profile/Profile.jsx"));
 const AdvanceTax = React.lazy(() => import("./pages/calculator/AdvanceTax.jsx"));
 
+const RefundTracker = React.lazy(() => import("./pages/filing/RefundTracker.jsx"));
+
 export default function App() {
   return (
     <React.Suspense fallback={
@@ -51,6 +53,7 @@ export default function App() {
           <Route path="filing/itr1"      element={<ITR1Filing />} />
           <Route path="profile" element={<Profile />} />
           <Route path="advance-tax" element={<AdvanceTax />} />
+          <Route path="refund-tracker" element={<RefundTracker />} />
         </Route>
         
       </Routes>

@@ -10,6 +10,7 @@ import {
   MenuUnfoldOutlined,
   FileDoneOutlined,
   CalendarOutlined,
+  BankOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuthStore } from "../../store/index.js";
@@ -51,6 +52,12 @@ const NAV_ITEMS = [
   icon:  <CalendarOutlined />,
   label: "Advance Tax",
   flag:  "ADVANCE_TAX_CALC",
+  },
+  {
+  key:   "/refund-tracker",
+  icon:  <BankOutlined />,
+  label: "Refund Tracker",
+  flag:  "REFUND_TRACKER",
   },
   {
     key: "/profile",

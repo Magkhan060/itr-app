@@ -1,5 +1,6 @@
-import Document    from "./documents.model.js";
+import Document        from "./documents.model.js";
 import { parseForm16 } from "./form16.parser.js";
+import { parseForm26AS } from "./form26as.parser.js";
 import fs from "fs";
 
 export const uploadDocument = async (userId, file, type, financialYear = "2025-26") => {
@@ -15,21 +16,28 @@ export const uploadDocument = async (userId, file, type, financialYear = "2025-2
     parseStatus:   "pending",
   });
 
-  // Auto-parse Form 16
-  if (type === "form16") {
-    try {
-      const parsedData = await parseForm16(file.path);
-      doc.parsedData   = parsedData;
-      doc.parseStatus  = "success";
-      await doc.save();
-    } catch (err) {
-      console.error("[Form16 Parse Error]", err.message, err.stack);
-      doc.parseStatus = "failed";
-      doc.parseError  = err.message; // Store error for debugging
-      await doc.save();
+  try {
+    let parsedData = null;
+
+    if (type === "form16") {
+      parsedData = await parseForm16(file.path);
+    } else if (type === "form26as") {
+      parsedData = await parseForm26AS(file.path);
     }
+
+    if (parsedData) {
+      doc.parsedData  = parsedData;
+      doc.parseStatus = "success";
+    } else {
+      doc.parseStatus = "success"; // Non-parsed types stored as-is
+    }
+  } catch (err) {
+    console.error(`[${type} Parse Error]`, err.message, err);
+    doc.parseStatus = "failed";
+    doc.parsedData  = { error: err.message };
   }
 
+  await doc.save();
   return doc;
 };
 
@@ -40,8 +48,6 @@ export const getMyDocuments = async (userId) => {
 export const deleteDocument = async (userId, docId) => {
   const doc = await Document.findOne({ _id: docId, userId });
   if (!doc) throw Object.assign(new Error("Document not found"), { status: 404 });
-
-  // Remove file from disk
   if (fs.existsSync(doc.filePath)) fs.unlinkSync(doc.filePath);
   await doc.deleteOne();
   return { deleted: true };
