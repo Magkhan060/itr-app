@@ -14,6 +14,14 @@ export const useAuthStore = create((set) => ({
   },
 }));
 
+export const useFlagsStore = create((set) => ({
+  flags: {},
+  setFlags: (flagsArray) => {
+    const map = Object.fromEntries(flagsArray.map((f) => [f.key, f.enabled]));
+    set({ flags: map });
+  },
+}));
+
 export const useFilingStore = create((set) => ({
   currentITRType: null,
   filingData:     {},

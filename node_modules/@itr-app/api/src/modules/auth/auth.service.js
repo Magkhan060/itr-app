@@ -37,6 +37,10 @@ export const loginUser = async ({ pan, password }) => {
     throw Object.assign(new Error("Invalid PAN or password"), { status: 401 });
   }
 
+  if (!user.isActive) {
+    throw Object.assign(new Error("Account has been deactivated"), { status: 403 });
+  }
+
   user.lastLogin = new Date();
   await user.save();
 

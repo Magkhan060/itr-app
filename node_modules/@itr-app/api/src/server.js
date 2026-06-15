@@ -4,6 +4,7 @@ import { env } from "./config/env.js";
 import { connectDB } from "./config/db.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 
+
 const app = express();
 
 // ── Middleware ──────────────────────────────────────────────
@@ -36,16 +37,28 @@ app.use("/api/filing", filingRoutes);
 import documentRoutes from "./modules/documents/documents.routes.js";
 app.use("/api/documents", documentRoutes);
 
+import featuresRoutes from "./modules/features/features.routes.js";
+import adminRoutes    from "./modules/admin/admin.routes.js";
+import { seedFlags }  from "./modules/features/features.service.js";
+
+app.use("/api/features", featuresRoutes);
+app.use("/api/admin",    adminRoutes);
 
 // ── Error handler ───────────────────────────────────────────
 app.use(errorHandler);
 
 // ── Start ───────────────────────────────────────────────────
+// connectDB().then(() => {
+//   app.listen(env.port, () => {
+//     console.log(`🚀 API running at http://localhost:${env.port}`);
+//   });
+// });
+
+// Add seedFlags() call inside connectDB().then():
 connectDB().then(() => {
+  seedFlags(); // Seed default flags into DB
   app.listen(env.port, () => {
     console.log(`🚀 API running at http://localhost:${env.port}`);
   });
 });
-
-
 

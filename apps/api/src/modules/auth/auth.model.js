@@ -47,7 +47,13 @@ const userSchema = new mongoose.Schema(
     lastLogin: {
       type: Date,
       default: null,
+    },    
+    role: {
+      type:    String,
+      enum:    ["user", "admin"],
+      default: "user",
     },
+
   },
   { timestamps: true }
 );
@@ -55,13 +61,15 @@ const userSchema = new mongoose.Schema(
 // Never expose sensitive fields in JSON responses
 userSchema.methods.toSafeObject = function () {
   return {
-    id:        this._id,
-    pan:       this.pan,
-    fullName:  this.fullName,
-    email:     this.email,
-    mobile:    this.mobile,
+    id:          this._id,
+    pan:         this.pan,
+    fullName:    this.fullName,
+    email:       this.email,
+    mobile:      this.mobile,
     dateOfBirth: this.dateOfBirth,
-    createdAt: this.createdAt,
+    createdAt:   this.createdAt,
+    role:        this.role,
+    isActive:    this.isActive,
   };
 };
 

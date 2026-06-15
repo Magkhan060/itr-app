@@ -24,13 +24,9 @@ const getAge = (dateOfBirth) => {
 const applySlabs = (taxableIncome, slabs) => {
   let tax = 0;
   for (const slab of slabs) {
-    if (taxableIncome <= 0) break;
-    const slabSize = slab.max === Infinity
-      ? taxableIncome
-      : Math.min(taxableIncome, slab.max) - slab.min + 1;
-    if (taxableIncome > slab.min - 1) {
-      tax += Math.max(0, Math.min(taxableIncome, slab.max) - slab.min + 1) * slab.rate;
-    }
+    if (taxableIncome <= slab.min - 1) break;
+    const slabIncome = Math.min(taxableIncome, slab.max) - slab.min + 1;
+    tax += Math.max(0, slabIncome) * slab.rate;
   }
   return Math.round(tax);
 };

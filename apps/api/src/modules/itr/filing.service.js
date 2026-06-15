@@ -1,5 +1,6 @@
 import Filing from "./filing.model.js";
 import { compareRegimes } from "../tax-engine/engine.service.js";
+import { CURRENT_AY } from "@itr-app/shared-types";
 import crypto from "crypto";
 
 export const saveDraft = async (userId, { itrType, assessmentYear, step, data }) => {
@@ -46,7 +47,7 @@ export const submitITR1 = async (userId, { personalInfo, incomeDetails, deductio
   const filter = {
     userId,
     itrType:        "ITR-1",
-    assessmentYear: "2026-27",
+    assessmentYear: CURRENT_AY,
   };
 
   const itr1Data = {

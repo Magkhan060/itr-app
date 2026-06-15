@@ -1,7 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuthStore } from "./store/index.js";
+import { useAuthStore, useFlagsStore } from "./store/index.js";
+import api from "./services/api.js";
 import AppLayout from "./components/layout/AppLayout.jsx";
+// import { useAuthStore } from "./store/index.js";
+const AdminLayout = React.lazy(() => import("./pages/admin/AdminLayout.jsx"));
+// Add AdminRoute guard
+const AdminRoute = ({ children }) => {
+  const user = useAuthStore((s) => s.user);
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "admin") return <Navigate to="/dashboard" replace />;
+  return children;
+};
 
 
 const Login      = React.lazy(() => import("./pages/auth/Login.jsx"));
@@ -33,6 +43,12 @@ const AdvanceTax = React.lazy(() => import("./pages/calculator/AdvanceTax.jsx"))
 const RefundTracker = React.lazy(() => import("./pages/filing/RefundTracker.jsx"));
 
 export default function App() {
+  const setFlags = useFlagsStore((s) => s.setFlags);
+
+  useEffect(() => {
+    api.get("/features").then((res) => setFlags(res.data)).catch(() => {});
+  }, []);
+
   return (
     <React.Suspense fallback={
       <div className="flex items-center justify-center h-screen">
@@ -54,6 +70,7 @@ export default function App() {
           <Route path="profile" element={<Profile />} />
           <Route path="advance-tax" element={<AdvanceTax />} />
           <Route path="refund-tracker" element={<RefundTracker />} />
+          <Route path="admin" element={<AdminRoute><AdminLayout /></AdminRoute>} />
         </Route>
         
       </Routes>

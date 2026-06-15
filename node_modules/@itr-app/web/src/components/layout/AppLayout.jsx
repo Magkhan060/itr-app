@@ -11,10 +11,12 @@ import {
   FileDoneOutlined,
   CalendarOutlined,
   BankOutlined,
+  // SettingOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
-import { useAuthStore } from "../../store/index.js";
-import useFeature from "../../hooks/useFeature.js";
+import { useAuthStore, useFlagsStore } from "../../store/index.js";
+import { FLAGS } from "../../config/features.config.js";
+import { SettingOutlined } from "@ant-design/icons";
 
 const { Header, Sider, Content, Footer } = Layout;
 const { Text } = Typography;
@@ -65,6 +67,13 @@ const NAV_ITEMS = [
     label: "My Profile",
     flag: null,
   },
+  {
+  key:   "/admin",
+  icon:  <SettingOutlined />,
+  label: "Admin Panel",
+  flag:  null,
+  adminOnly: true,
+},
 ];
 
 export default function AppLayout() {
@@ -72,19 +81,27 @@ export default function AppLayout() {
   const navigate  = useNavigate();
   const location  = useLocation();
   const { user, logout } = useAuthStore();
+  const liveFlags = useFlagsStore((s) => s.flags);
+  const isEnabled = (key) =>
+    Object.keys(liveFlags).length > 0
+      ? (liveFlags[key] ?? false)
+      : (FLAGS[key]?.enabled ?? false);
 
   // Build menu items respecting feature flags
   const buildMenuItems = (items) =>
-    items
-      .filter((item) => !item.flag || useFeature(item.flag))
-      .map((item) => ({
-        key:      item.key,
-        icon:     item.icon,
-        label:    item.label,
-        children: item.children
-          ? buildMenuItems(item.children)
-          : undefined,
-      }));
+  items
+    .filter((item) => {
+      if (item.adminOnly && user?.role !== "admin") return false;
+      if (item.flag && !isEnabled(item.flag)) return false;
+
+      return true;
+    })
+    .map((item) => ({
+      key:      item.key,
+      icon:     item.icon,
+      label:    item.label,
+      children: item.children ? buildMenuItems(item.children) : undefined,
+    }));
 
   const menuItems = buildMenuItems(NAV_ITEMS);
 
