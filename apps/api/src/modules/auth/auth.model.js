@@ -50,10 +50,12 @@ const userSchema = new mongoose.Schema(
     },    
     role: {
       type:    String,
-      enum:    ["user", "admin"],
+      enum:    ["user", "ca", "admin"],
       default: "user",
     },
-
+    // CA-specific profile fields
+    caFirmName:  { type: String, trim: true },
+    caMemberNo:  { type: String, trim: true },  // ICAI membership number
   },
   { timestamps: true }
 );
@@ -70,6 +72,8 @@ userSchema.methods.toSafeObject = function () {
     createdAt:   this.createdAt,
     role:        this.role,
     isActive:    this.isActive,
+    caFirmName:  this.caFirmName,
+    caMemberNo:  this.caMemberNo,
   };
 };
 

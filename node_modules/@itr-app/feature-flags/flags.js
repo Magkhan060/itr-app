@@ -11,12 +11,13 @@ export const FLAGS = {
   // ── Sub-features ───────────────────────────────────────────
   FORM_16_PARSER:    { enabled: true,  label: "Form 16 Upload & Parse"    },
   FORM_26AS_IMPORT:  { enabled: true,  label: "26AS / AIS Import"         },
-  EFILING_DIRECT:    { enabled: false, label: "Direct e-Filing (ITD API)" },
+  EFILING_DIRECT:    { enabled: true,  label: "Direct e-Filing (ITD API)" },
   REGIME_COMPARISON: { enabled: true,  label: "Old vs New Regime Compare" },
   ADVANCE_TAX_CALC:  { enabled: true,  label: "Advance Tax Calculator"    },
   DOCUMENT_VAULT:    { enabled: false, label: "Document Vault"            },
-  REFUND_TRACKER:    { enabled: true, label: "Refund Status Tracker"     },
+  REFUND_TRACKER:    { enabled: true,  label: "Refund Status Tracker"     },
   PREFILL_ITD:       { enabled: false, label: "Pre-fill from ITD Portal"  },
+  CA_PORTAL:         { enabled: true,  label: "CA / Tax Professional Portal" },
 };
 
 export const isEnabled = (flagKey) => FLAGS[flagKey]?.enabled ?? false;

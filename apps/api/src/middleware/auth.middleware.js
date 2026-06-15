@@ -11,7 +11,8 @@ export const protect = (req, res, next) => {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, env.jwtSecret);
-    req.userId = decoded.userId;
+    req.userId   = decoded.userId;
+    req.userRole = decoded.role || "user";   // role embedded at login — no extra DB lookup
     next();
   } catch (err) {
     return error(res, "Invalid or expired token", 401, "INVALID_TOKEN");

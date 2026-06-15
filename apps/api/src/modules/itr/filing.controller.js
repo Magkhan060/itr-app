@@ -31,3 +31,28 @@ export const getFilingById = async (req, res, next) => {
     return response.success(res, result, "Filing fetched");
   } catch (err) { next(err); }
 };
+
+// ── CA Portal controllers ─────────────────────────────────────────────────────
+
+export const saveDraftForClient = async (req, res, next) => {
+  try {
+    const data   = saveDraftSchema.parse(req.body);
+    const result = await filingService.saveDraftForClient(req.userId, req.params.clientId, data);
+    return response.success(res, result, "Draft saved");
+  } catch (err) { next(err); }
+};
+
+export const submitITR1ForClient = async (req, res, next) => {
+  try {
+    const data   = submitITR1Schema.parse(req.body);
+    const result = await filingService.submitITR1ForClient(req.userId, req.params.clientId, data);
+    return response.success(res, result, "ITR-1 submitted for client", 201);
+  } catch (err) { next(err); }
+};
+
+export const getClientFilings = async (req, res, next) => {
+  try {
+    const result = await filingService.getClientFilings(req.userId, req.params.clientId);
+    return response.success(res, result, "Client filings fetched");
+  } catch (err) { next(err); }
+};

@@ -7,6 +7,7 @@ import {
   FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined,
   FileDoneOutlined, ArrowRightOutlined, CalculatorOutlined,
   UploadOutlined, BankOutlined, CalendarOutlined, PlusOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore, useFlagsStore } from "../../store/index.js";
@@ -61,6 +62,15 @@ const QUICK_ACTIONS = [
     path:  "/refund-tracker",
     flag:  "REFUND_TRACKER",
     color: "#f9f0ff",
+  },
+  {
+    key:   "efiling",
+    icon:  <SafetyCertificateOutlined style={{ fontSize: 28, color: "#13c2c2" }} />,
+    title: "e-File with ITD",
+    desc:  "Submit your ITR directly to the Income Tax Dept",
+    path:  "/efiling",
+    flag:  "EFILING_DIRECT",
+    color: "#e6fffb",
   },
 ];
 
@@ -243,7 +253,7 @@ export default function Dashboard() {
           },
         ].map(({ title, value, icon, color, suffix, valueStyle }) => (
           <Col xs={24} sm={12} lg={6} key={title}>
-            <Card bordered={false} style={{ borderRadius: 10 }} hoverable>
+            <Card variant="borderless" style={{ borderRadius: 10 }} hoverable>
               <Statistic
                 title={title}
                 value={value}

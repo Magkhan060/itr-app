@@ -108,3 +108,53 @@ export const getFilingById = async (userId, filingId) => {
   if (!filing) throw Object.assign(new Error("Filing not found"), { status: 404 });
   return withDecryptedBank(filing);
 };
+
+// ── CA Portal service functions ───────────────────────────────────────────────
+
+export const saveDraftForClient = async (caId, clientId, { itrType, assessmentYear, step, data }) => {
+  const filter = { userId: caId, caClientId: clientId, itrType, assessmentYear };
+  const filing = await Filing.findOneAndUpdate(
+    filter,
+    { $set: { status: "draft", itr1Data: encryptBankAccount(data), preparedByCa: caId, caClientId: clientId } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+  return withDecryptedBank(filing);
+};
+
+export const submitITR1ForClient = async (caId, clientId, { personalInfo, incomeDetails, deductions, selectedRegime }) => {
+  const grossIncome = incomeDetails.grossSalary || 0;
+  const otherIncome = (incomeDetails.interestIncome || 0) + (incomeDetails.otherIncome || 0);
+
+  const taxResult   = compareRegimes({
+    grossIncome, otherIncome,
+    deductions: { ...deductions, hra: deductions.hra_exempt },
+    dateOfBirth: personalInfo.dateOfBirth || null,
+  });
+  const selectedTax = taxResult[selectedRegime];
+  const ackNo       = `ITR1CA${Date.now()}${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+
+  const rawItr1Data = { ...personalInfo, ...incomeDetails, ...deductions, selectedRegime, taxComputation: selectedTax };
+
+  const filing = await Filing.findOneAndUpdate(
+    { userId: caId, caClientId: clientId, itrType: "ITR-1", assessmentYear: CURRENT_AY },
+    {
+      $set: {
+        status:            "submitted",
+        itr1Data:          encryptBankAccount(rawItr1Data),
+        submittedAt:       new Date(),
+        acknowledgementNo: ackNo,
+        preparedByCa:      caId,
+        caClientId:        clientId,
+        approvalStatus:    "not_sent",
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+
+  return { filing: withDecryptedBank(filing), acknowledgementNo: ackNo, taxSummary: selectedTax };
+};
+
+export const getClientFilings = async (caId, clientId) => {
+  const filings = await Filing.find({ userId: caId, caClientId: clientId }).sort({ createdAt: -1 }).lean();
+  return filings.map((f) => ({ ...f, itr1Data: decryptBankAccount(f.itr1Data) }));
+};

@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import User from "./auth.model.js";
 import { env } from "../../config/env.js";
 
-export const registerUser = async ({ pan, fullName, email, mobile, password, dateOfBirth }) => {
+export const registerUser = async ({ pan, fullName, email, mobile, password, dateOfBirth, role, caFirmName, caMemberNo }) => {
   // Check duplicates
   const existing = await User.findOne({ $or: [{ pan }, { email }] });
   if (existing) {
@@ -20,9 +20,12 @@ export const registerUser = async ({ pan, fullName, email, mobile, password, dat
     mobile,
     passwordHash,
     dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+    role:        role || "user",
+    caFirmName:  role === "ca" ? caFirmName : undefined,
+    caMemberNo:  role === "ca" ? caMemberNo : undefined,
   });
 
-  const token = generateToken(user._id);
+  const token = generateToken(user._id, user.role);
   return { user: user.toSafeObject(), token };
 };
 
@@ -44,7 +47,7 @@ export const loginUser = async ({ pan, password }) => {
   user.lastLogin = new Date();
   await user.save();
 
-  const token = generateToken(user._id);
+  const token = generateToken(user._id, user.role);
   return { user: user.toSafeObject(), token };
 };
 
@@ -54,5 +57,5 @@ export const getUserById = async (id) => {
   return user.toSafeObject();
 };
 
-const generateToken = (userId) =>
-  jwt.sign({ userId }, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
+const generateToken = (userId, role = "user") =>
+  jwt.sign({ userId, role }, env.jwtSecret, { expiresIn: env.jwtExpiresIn });

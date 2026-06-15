@@ -74,11 +74,28 @@ const filingSchema = new mongoose.Schema(
     itr1Data:      itr1DataSchema,
     submittedAt:   { type: Date },
     acknowledgementNo: { type: String },
+
+    // e-Filing to ITD portal
+    efilingStatus: { type: String, enum: ["not_started", "submitted", "failed"], default: "not_started" },
+    itrVAckNo:     { type: String },
+    efiledAt:      { type: Date },
+    evcMethod:     { type: String, enum: ["aadhaar_otp", "bank_evc", "net_banking", "demat"] },
+
+    // CA Portal — set when a CA files on behalf of a client
+    caClientId:      { type: mongoose.Schema.Types.ObjectId, ref: "CAClient", default: null },
+    preparedByCa:    { type: mongoose.Schema.Types.ObjectId, ref: "User",     default: null },
+    // Client approval workflow
+    approvalStatus:      { type: String, enum: ["not_sent", "pending", "approved", "rejected"], default: "not_sent" },
+    approvalToken:       { type: String },           // UUID sent in approval email link
+    approvalSentAt:      { type: Date },
+    approvalRespondedAt: { type: Date },
+    approvalComment:     { type: String },           // client's rejection note
   },
   { timestamps: true }
 );
 
-// One active filing per user per AY per ITR type
-filingSchema.index({ userId: 1, assessmentYear: 1, itrType: 1 }, { unique: true });
+// One filing per (user OR ca-client) per AY per ITR type
+// caClientId is null for self-filed returns, so the compound key stays unique per taxpayer
+filingSchema.index({ userId: 1, caClientId: 1, assessmentYear: 1, itrType: 1 }, { unique: true });
 
 export default mongoose.model("Filing", filingSchema);

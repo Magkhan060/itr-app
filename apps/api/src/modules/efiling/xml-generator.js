@@ -1,0 +1,179 @@
+// Generates ITR-1 XML in a structure compatible with the ITD e-Filing schema.
+// Fields not captured in our data model are defaulted to 0 / empty string.
+// When real ITD credentials are configured, this XML is submitted as-is.
+
+const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const num = (v) => Math.round(Number(v) || 0);
+
+const AY_CODE_MAP = {
+  "2026-27": "2627",
+  "2025-26": "2526",
+  "2024-25": "2425",
+};
+
+export const generateITR1XML = (filing) => {
+  const d    = filing.itr1Data || {};
+  const tax  = d.taxComputation || {};
+  const ay   = filing.assessmentYear || "2026-27";
+  const ayCode = AY_CODE_MAP[ay] || ay.replace("-", "").slice(0, 4);
+
+  // Split fullName into first + surname for ITD schema
+  const parts     = (d.fullName || "").trim().split(/\s+/);
+  const surName   = parts.length > 1 ? parts.pop() : parts[0] || "";
+  const firstName = parts.join(" ");
+
+  // Regime flags
+  const isNew     = d.selectedRegime === "new";
+  const newFlag   = isNew ? "Y" : "N";
+
+  // Income figures
+  const grossSalary    = num(d.grossSalary);
+  const stdDeduction   = Math.min(50000, grossSalary);
+  const hraExempt      = num(d.hra_exempt);
+  const profTax        = num(d.professionalTax || 0);
+  const deductionUs16  = stdDeduction + hraExempt + profTax;
+  const netSalary      = Math.max(0, grossSalary - deductionUs16);
+  const homeLoanInt    = num(d.homeLoanInterest);
+  const interestIncome = num(d.interestIncome);
+  const otherIncome    = num(d.otherIncome);
+  const grossTotal     = netSalary - homeLoanInt + interestIncome + otherIncome;
+
+  // Deductions (Chapter VI-A)
+  const sec80C      = Math.min(num(d.sec80C), 150000);
+  const sec80CCD1B  = Math.min(num(d.sec80CCD1B), 50000);
+  const sec80D      = Math.min(num(d.sec80D_self) + num(d.sec80D_parents), 75000);
+  const sec80TTA    = Math.min(num(d.sec80TTA_TTB), 10000);
+  const sec80G      = num(d.sec80G);
+  const lta         = num(d.lta);
+  const totalDeductions = isNew ? 0 : sec80C + sec80CCD1B + sec80D + sec80TTA + sec80G + lta;
+
+  const taxableIncome  = Math.max(0, grossTotal - totalDeductions);
+  const totalTax       = num(tax.totalTax || 0);
+  const rebate87A      = num(tax.rebateApplied || 0);
+  const surcharge      = num(tax.surcharge || 0);
+  const cess           = num(tax.cess || 0);
+  const tdsDeducted    = num(d.tdsDeducted);
+  const refundDue      = Math.max(0, tdsDeducted - totalTax);
+  const balPayable     = Math.max(0, totalTax - tdsDeducted);
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ITR xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ITR1>
+    <CreationInfo>
+      <SWVersionNo>1.0</SWVersionNo>
+      <SWCreatedBy>ITR-App v1.0</SWCreatedBy>
+      <JSONDtd>1</JSONDtd>
+      <AssessmentYear>${ayCode}</AssessmentYear>
+      <IntermediaryCity>${esc(d.city)}</IntermediaryCity>
+    </CreationInfo>
+    <Form_ITR1>
+      <PersonalInfo>
+        <AssesseeName>
+          <FirstName>${esc(firstName)}</FirstName>
+          <MiddleName></MiddleName>
+          <SurName>${esc(surName)}</SurName>
+        </AssesseeName>
+        <PAN>${esc(d.pan)}</PAN>
+        <DOB>${d.dateOfBirth ? new Date(d.dateOfBirth).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }) : ""}</DOB>
+        <EmployerCategory>OTHERS</EmployerCategory>
+        <AadhaarCardNo></AadhaarCardNo>
+        <MobileNo></MobileNo>
+        <EmailAddress></EmailAddress>
+      </PersonalInfo>
+      <Address>
+        <ResidenceNo></ResidenceNo>
+        <LocalityOrArea></LocalityOrArea>
+        <CityOrTownOrDistrict>${esc(d.city)}</CityOrTownOrDistrict>
+        <CountryCode>91</CountryCode>
+        <PinCode></PinCode>
+      </Address>
+      <FilingStatus>
+        <ReturnFileSec>11</ReturnFileSec>
+        <SeventhProvisio139>N</SeventhProvisio139>
+        <ConditionsResidential>${(d.residentialStatus || "ROR").toLowerCase()}</ConditionsResidential>
+        <IsDefective>N</IsDefective>
+        <NewTaxRegime>${newFlag}</NewTaxRegime>
+        <OptionNewTaxRegime>${newFlag}</OptionNewTaxRegime>
+      </FilingStatus>
+      <ScheduleS>
+        <NameOfEmployer>${esc(d.employerName)}</NameOfEmployer>
+        <TANofEmployer>${esc(d.employerTAN)}</TANofEmployer>
+        <GrossSalary>${grossSalary}</GrossSalary>
+        <Salary>${grossSalary}</Salary>
+        <PerquisitesValue>0</PerquisitesValue>
+        <ProfitsInSalary>0</ProfitsInSalary>
+        <DeductionUs16ia>${stdDeduction}</DeductionUs16ia>
+        <DeductionUs16ii>${hraExempt}</DeductionUs16ii>
+        <DeductionUs16iii>${profTax}</DeductionUs16iii>
+        <TotalDeductionUs16>${deductionUs16}</TotalDeductionUs16>
+        <IncomeFromSalary>${netSalary}</IncomeFromSalary>
+      </ScheduleS>
+      <ScheduleHP>
+        <TotalIncomefromHP>${-homeLoanInt}</TotalIncomefromHP>
+        <InterestPayable24b>${homeLoanInt}</InterestPayable24b>
+      </ScheduleHP>
+      <ScheduleOS>
+        <IncomeFromOS>
+          <OtherSrcThanOwnRaceHorse>${interestIncome + otherIncome}</OtherSrcThanOwnRaceHorse>
+        </IncomeFromOS>
+      </ScheduleOS>
+      <ScheduleVIA>
+        <DeductUndChapVIA>
+          <Section80C>${sec80C}</Section80C>
+          <Section80CCD1B>${sec80CCD1B}</Section80CCD1B>
+          <Section80D>${sec80D}</Section80D>
+          <Section80TTA_TTB>${sec80TTA}</Section80TTA_TTB>
+          <Section80G>${sec80G}</Section80G>
+          <TotalChapVIADeductions>${totalDeductions}</TotalChapVIADeductions>
+        </DeductUndChapVIA>
+      </ScheduleVIA>
+      <ITR1_IncomeDeductions>
+        <GrossSalary>${grossSalary}</GrossSalary>
+        <DeductionUs16>${deductionUs16}</DeductionUs16>
+        <NetSalary>${netSalary}</NetSalary>
+        <TotalIncomeOfHP>${-homeLoanInt}</TotalIncomeOfHP>
+        <IncomeOtherSources>${interestIncome + otherIncome}</IncomeOtherSources>
+        <GrossTotalIncome>${grossTotal}</GrossTotalIncome>
+        <TotalIncome>${taxableIncome}</TotalIncome>
+      </ITR1_IncomeDeductions>
+      <ITR1_TaxComputation>
+        <TaxPayableOnTI>${num(tax.taxBeforeRebate || totalTax + rebate87A)}</TaxPayableOnTI>
+        <Rebate87A>${rebate87A}</Rebate87A>
+        <TaxPayableAfterRebate>${Math.max(0, totalTax - cess - surcharge)}</TaxPayableAfterRebate>
+        <Surcharge>${surcharge}</Surcharge>
+        <EducationCess>${cess}</EducationCess>
+        <TaxPayable>${totalTax}</TaxPayable>
+        <TaxRelief89>0</TaxRelief89>
+        <NetTaxPayable>${totalTax}</NetTaxPayable>
+      </ITR1_TaxComputation>
+      <TaxPaid>
+        <TaxesPaid>
+          <AdvanceTax>0</AdvanceTax>
+          <TDS1>${tdsDeducted}</TDS1>
+          <TDS2>0</TDS2>
+          <TCS>0</TCS>
+          <SelfAssessmentTax>0</SelfAssessmentTax>
+          <TotalTaxesPaid>${tdsDeducted}</TotalTaxesPaid>
+        </TaxesPaid>
+        <BalTaxPayable>${balPayable}</BalTaxPayable>
+      </TaxPaid>
+      <Refund>
+        <RefundDue>${refundDue}</RefundDue>
+        <BankAccountNo>${esc(d.bankAccountNo || "")}</BankAccountNo>
+        <BankIFSC>${esc(d.ifscCode || "")}</BankIFSC>
+      </Refund>
+      <Verification>
+        <Declaration>
+          <AssesseeVerName>${esc(d.fullName)}</AssesseeVerName>
+          <AssesseeVerPAN>${esc(d.pan)}</AssesseeVerPAN>
+          <FatherName></FatherName>
+          <Designation>SELF</Designation>
+        </Declaration>
+        <Capacity>S</Capacity>
+        <Place>${esc(d.city)}</Place>
+      </Verification>
+    </Form_ITR1>
+  </ITR1>
+</ITR>`;
+};

@@ -16,8 +16,14 @@ const AdminRoute = ({ children }) => {
 const Login      = React.lazy(() => import("./pages/auth/Login.jsx"));
 const Register   = React.lazy(() => import("./pages/auth/Register.jsx"));
 const Dashboard  = React.lazy(() => import("./pages/dashboard/Dashboard.jsx"));
-const TaxCalculator = React.lazy(() => import("./pages/calculator/TaxCalculator.jsx"));
-const ITR1Filing    = React.lazy(() => import("./pages/filing/itr1/ITR1Filing.jsx"));
+const TaxCalculator   = React.lazy(() => import("./pages/calculator/TaxCalculator.jsx"));
+const ITR1Filing      = React.lazy(() => import("./pages/filing/itr1/ITR1Filing.jsx"));
+const EFilingPage     = React.lazy(() => import("./pages/filing/efiling/EFilingPage.jsx"));
+const CADashboard     = React.lazy(() => import("./pages/ca/CADashboard.jsx"));
+const AddEditClient   = React.lazy(() => import("./pages/ca/clients/AddEditClient.jsx"));
+const ClientWorkspace = React.lazy(() => import("./pages/ca/clients/ClientWorkspace.jsx"));
+const CAITRFiling     = React.lazy(() => import("./pages/ca/filing/CAITRFiling.jsx"));
+const ApprovePage     = React.lazy(() => import("./pages/approve/ApprovePage.jsx"));
 
 const NotFound   = () => (
   <div className="flex flex-col items-center justify-center h-64">
@@ -69,8 +75,10 @@ export default function App() {
     }>
       <Routes>
         {/* Public */}
-        <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
-        <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        <Route path="/login"            element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register"         element={<PublicRoute><Register /></PublicRoute>} />
+        {/* Public approval page — no auth required */}
+        <Route path="/approve/:token"   element={<ApprovePage />} />
 
         {/* Protected — wrapped in layout */}
         <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
@@ -79,6 +87,13 @@ export default function App() {
           <Route path="*"             element={<NotFound />} />
           <Route path="calculator"       element={<TaxCalculator />} />
           <Route path="filing/itr1"      element={<ITR1Filing />} />
+          <Route path="efiling"           element={<EFilingPage />} />
+          {/* CA Portal routes */}
+          <Route path="ca/dashboard"                        element={<CADashboard />} />
+          <Route path="ca/clients/new"                      element={<AddEditClient />} />
+          <Route path="ca/clients/:clientId"                element={<ClientWorkspace />} />
+          <Route path="ca/clients/:clientId/edit"           element={<AddEditClient />} />
+          <Route path="ca/clients/:clientId/itr1"           element={<CAITRFiling />} />
           <Route path="profile" element={<Profile />} />
           <Route path="advance-tax" element={<AdvanceTax />} />
           <Route path="refund-tracker" element={<RefundTracker />} />

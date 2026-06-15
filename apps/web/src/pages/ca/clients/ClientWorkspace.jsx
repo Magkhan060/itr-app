@@ -1,0 +1,292 @@
+import React, { useEffect, useState } from "react";
+import {
+  Card, Row, Col, Button, Tag, Typography, Space, Descriptions,
+  Table, Alert, Statistic, Divider, Popconfirm, message, Tooltip,
+} from "antd";
+import {
+  ArrowLeftOutlined, EditOutlined, FileTextOutlined,
+  SendOutlined, CheckCircleOutlined, FileDoneOutlined,
+  ClockCircleOutlined, WhatsAppOutlined, MailOutlined,
+  SafetyCertificateOutlined,
+} from "@ant-design/icons";
+import { useNavigate, useParams } from "react-router-dom";
+import { getClient, sendApproval } from "../../../services/ca.service.js";
+
+const { Title, Text } = Typography;
+
+const fmt = (n) =>
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n || 0);
+
+const APPROVAL_COLOR = { not_sent: "default", pending: "orange", approved: "green", rejected: "red" };
+const STATUS_COLOR   = { draft: "default", submitted: "blue", verified: "green", processed: "purple" };
+
+export default function ClientWorkspace() {
+  const { clientId }  = useParams();
+  const navigate      = useNavigate();
+  const [client, setClient]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sendingApproval, setSendingApproval] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    getClient(clientId)
+      .then((res) => setClient(res.data))
+      .catch(() => message.error("Failed to load client"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [clientId]);
+
+  const latestFiling = client?.filings?.[0] || null;
+  const tax          = latestFiling?.itr1Data?.taxComputation || {};
+
+  const handleSendApproval = async () => {
+    if (!latestFiling) return;
+    setSendingApproval(true);
+    try {
+      await sendApproval(latestFiling._id);
+      message.success("Approval request sent via email and SMS");
+      load();
+    } catch (err) {
+      message.error(err.response?.data?.error || "Failed to send approval request");
+    } finally {
+      setSendingApproval(false);
+    }
+  };
+
+  // Generate WhatsApp deep-link for the CA to share manually
+  const waLink = latestFiling?.approvalToken
+    ? `https://wa.me/91${client?.mobile}?text=${encodeURIComponent(
+        `Dear ${client?.fullName}, your CA has prepared your ITR-1 for FY 2025-26. ` +
+        `Refund/Tax details enclosed. Please review and approve: ` +
+        `${window.location.origin}/approve/${latestFiling.approvalToken}`
+      )}`
+    : null;
+
+  const filingColumns = [
+    { title: "Form",   dataIndex: "itrType",       key: "type",   render: (v) => <Tag color="blue">{v}</Tag> },
+    { title: "AY",     dataIndex: "assessmentYear", key: "ay",     render: (v) => <Text style={{ fontSize: 12 }}>{v}</Text> },
+    { title: "Status", dataIndex: "status",         key: "status", render: (s) => <Tag color={STATUS_COLOR[s]}>{s?.toUpperCase()}</Tag> },
+    {
+      title:  "Approval",
+      key:    "approval",
+      render: (_, r) => (
+        <Tag color={APPROVAL_COLOR[r.approvalStatus]}>
+          {r.approvalStatus === "not_sent"  ? "Not Sent" :
+           r.approvalStatus === "pending"   ? "Pending" :
+           r.approvalStatus === "approved"  ? "Approved" : "Changes Requested"}
+        </Tag>
+      ),
+    },
+    {
+      title:  "e-Filing",
+      key:    "efiling",
+      render: (_, r) => (
+        <Tag color={r.efilingStatus === "submitted" ? "green" : "default"}>
+          {r.efilingStatus === "submitted" ? "e-Filed" : "Pending"}
+        </Tag>
+      ),
+    },
+    { title: "Filed On", dataIndex: "submittedAt", key: "date", render: (d) => d ? new Date(d).toLocaleDateString("en-IN") : "—" },
+  ];
+
+  if (loading) return <Card loading style={{ borderRadius: 10 }} />;
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/ca/dashboard")}>Back</Button>
+          <div>
+            <Title level={3} style={{ margin: 0 }}>{client?.fullName}</Title>
+            <Space size={4}>
+              <Text code>{client?.pan}</Text>
+              {client?.email && <Text type="secondary" style={{ fontSize: 12 }}>{client.email}</Text>}
+            </Space>
+          </div>
+        </div>
+        <Space>
+          <Button icon={<EditOutlined />} onClick={() => navigate(`/ca/clients/${clientId}/edit`)}>Edit Client</Button>
+          <Button
+            type="primary"
+            icon={<FileTextOutlined />}
+            onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}
+          >
+            {latestFiling?.status === "draft" ? "Continue Filing" : "Start ITR-1"}
+          </Button>
+        </Space>
+      </div>
+
+      <Row gutter={[16, 16]}>
+        {/* Left: Client info */}
+        <Col xs={24} lg={8}>
+          <Card variant="borderless" style={{ borderRadius: 10 }} title="Client Details">
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="Name">{client?.fullName}</Descriptions.Item>
+              <Descriptions.Item label="PAN"><Text code>{client?.pan}</Text></Descriptions.Item>
+              <Descriptions.Item label="Mobile">{client?.mobile ? `+91 ${client.mobile}` : "—"}</Descriptions.Item>
+              <Descriptions.Item label="Email">{client?.email || "—"}</Descriptions.Item>
+              <Descriptions.Item label="Employer">{client?.employerName || "—"}</Descriptions.Item>
+              <Descriptions.Item label="City">{client?.city || "—"}</Descriptions.Item>
+            </Descriptions>
+            {client?.notes && (
+              <>
+                <Divider style={{ margin: "12px 0" }} />
+                <Text type="secondary" style={{ fontSize: 12 }}>Notes: {client.notes}</Text>
+              </>
+            )}
+          </Card>
+        </Col>
+
+        {/* Right: Latest filing + approval actions */}
+        <Col xs={24} lg={16}>
+          {latestFiling && latestFiling.status === "submitted" ? (
+            <Card
+              variant="borderless"
+              style={{ borderRadius: 10, marginBottom: 16 }}
+              title={
+                <Space>
+                  <FileDoneOutlined />
+                  <span>Latest Filing Summary</span>
+                  <Tag color="blue">AY {latestFiling.assessmentYear}</Tag>
+                </Space>
+              }
+              extra={
+                <Tag color={APPROVAL_COLOR[latestFiling.approvalStatus]}>
+                  {latestFiling.approvalStatus?.replace("_", " ").toUpperCase()}
+                </Tag>
+              }
+            >
+              <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+                {[
+                  { label: "Gross Salary",  value: latestFiling.itr1Data?.grossSalary, color: "#1677ff" },
+                  { label: "Total Tax",     value: tax.totalTax,    color: "#fa541c"  },
+                  { label: "TDS Deducted",  value: latestFiling.itr1Data?.tdsDeducted, color: "#52c41a" },
+                  {
+                    label: (latestFiling.itr1Data?.tdsDeducted || 0) >= (tax.totalTax || 0) ? "Refund Due" : "Tax Payable",
+                    value: Math.abs((latestFiling.itr1Data?.tdsDeducted || 0) - (tax.totalTax || 0)),
+                    color: "#722ed1",
+                  },
+                ].map(({ label, value, color }) => (
+                  <Col span={6} key={label}>
+                    <Card variant="borderless" style={{ border: "1px solid #f0f0f0", borderRadius: 8, textAlign: "center" }}>
+                      <Statistic title={<Text style={{ fontSize: 10 }}>{label}</Text>} value={fmt(value)} valueStyle={{ color, fontSize: 14, fontWeight: 600 }} />
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+
+              {/* Approval actions */}
+              {latestFiling.approvalStatus === "not_sent" && (
+                <Alert
+                  type="info"
+                  showIcon
+                  message="Ready to send for client approval"
+                  description="The ITR has been prepared. Send it to the client for review and approval before e-filing."
+                  style={{ marginBottom: 16, borderRadius: 8 }}
+                  action={
+                    <Space direction="vertical">
+                      <Button
+                        type="primary"
+                        size="small"
+                        icon={<SendOutlined />}
+                        loading={sendingApproval}
+                        onClick={handleSendApproval}
+                      >
+                        Send via Email + SMS
+                      </Button>
+                    </Space>
+                  }
+                />
+              )}
+
+              {latestFiling.approvalStatus === "pending" && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  icon={<ClockCircleOutlined />}
+                  message="Waiting for client approval"
+                  description={`Approval request sent on ${latestFiling.approvalSentAt ? new Date(latestFiling.approvalSentAt).toLocaleDateString("en-IN") : "—"}`}
+                  style={{ marginBottom: 16, borderRadius: 8 }}
+                  action={
+                    waLink && (
+                      <Tooltip title="Open WhatsApp to send reminder">
+                        <Button size="small" icon={<WhatsAppOutlined />} href={waLink} target="_blank" style={{ color: "#25D366", borderColor: "#25D366" }}>
+                          WhatsApp Reminder
+                        </Button>
+                      </Tooltip>
+                    )
+                  }
+                />
+              )}
+
+              {latestFiling.approvalStatus === "approved" && (
+                <Alert
+                  type="success"
+                  showIcon
+                  icon={<CheckCircleOutlined />}
+                  message="Client has approved — ready to e-file"
+                  description={`Approved on ${latestFiling.approvalRespondedAt ? new Date(latestFiling.approvalRespondedAt).toLocaleDateString("en-IN") : "—"}`}
+                  style={{ marginBottom: 16, borderRadius: 8 }}
+                  action={
+                    <Button
+                      type="primary"
+                      size="small"
+                      icon={<SafetyCertificateOutlined />}
+                      onClick={() => navigate(`/efiling?filingId=${latestFiling._id}`)}
+                    >
+                      Proceed to e-File
+                    </Button>
+                  }
+                />
+              )}
+
+              {latestFiling.approvalStatus === "rejected" && (
+                <Alert
+                  type="error"
+                  showIcon
+                  message="Client requested changes"
+                  description={latestFiling.approvalComment ? `Comment: "${latestFiling.approvalComment}"` : "No comment provided."}
+                  style={{ marginBottom: 16, borderRadius: 8 }}
+                  action={
+                    <Button size="small" onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}>
+                      Revise Filing
+                    </Button>
+                  }
+                />
+              )}
+            </Card>
+          ) : (
+            <Alert
+              type="info"
+              showIcon
+              message={latestFiling?.status === "draft" ? "Draft in progress" : "No filing prepared yet"}
+              description={latestFiling?.status === "draft"
+                ? "Continue filling the ITR form and submit to proceed."
+                : "Start an ITR-1 filing for this client."}
+              style={{ marginBottom: 16, borderRadius: 8 }}
+              action={
+                <Button type="primary" icon={<FileTextOutlined />} onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}>
+                  {latestFiling?.status === "draft" ? "Continue Filing" : "Start ITR-1"}
+                </Button>
+              }
+            />
+          )}
+
+          {/* Filing history */}
+          <Card variant="borderless" style={{ borderRadius: 10 }} title="Filing History">
+            <Table
+              dataSource={client?.filings || []}
+              columns={filingColumns}
+              rowKey="_id"
+              pagination={false}
+              size="small"
+              locale={{ emptyText: "No filings yet" }}
+            />
+          </Card>
+        </Col>
+      </Row>
+    </div>
+  );
+}

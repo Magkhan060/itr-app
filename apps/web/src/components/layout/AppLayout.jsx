@@ -6,7 +6,7 @@ import {
   DashboardOutlined, FileTextOutlined, CalculatorOutlined,
   UserOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
   FileDoneOutlined, CalendarOutlined, BankOutlined, SettingOutlined,
-  BellOutlined, CrownOutlined,
+  BellOutlined, CrownOutlined, TeamOutlined, AuditOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet, Link } from "react-router-dom";
 import { useAuthStore, useFlagsStore } from "../../store/index.js";
@@ -37,6 +37,9 @@ const NAV_ITEMS = [
   { key: "/refund-tracker",icon: <BankOutlined />,       label: "Refund Tracker", flag: "REFUND_TRACKER"    },
   { key: "/profile",       icon: <UserOutlined />,       label: "My Profile",     flag: null },
   { key: "/admin",         icon: <SettingOutlined />,    label: "Admin Panel",    flag: null, adminOnly: true },
+  // CA Portal nav items — only visible to CA role users
+  { key: "/ca/dashboard",  icon: <AuditOutlined />,      label: "CA Dashboard",   flag: "CA_PORTAL", caOnly: true },
+  { key: "/ca/clients",    icon: <TeamOutlined />,        label: "My Clients",     flag: "CA_PORTAL", caOnly: true },
 ];
 
 // Breadcrumb map — path → [crumbs]
@@ -51,6 +54,9 @@ const BREADCRUMBS = {
   "/refund-tracker": [{ title: "Refund Tracker" }],
   "/profile":        [{ title: "My Profile" }],
   "/admin":          [{ title: "Admin Panel" }],
+  "/ca/dashboard":   [{ title: "CA Dashboard" }],
+  "/ca/clients":     [{ title: "CA Dashboard" }, { title: "Clients" }],
+  "/ca/clients/new": [{ title: "CA Dashboard" }, { title: "Add Client" }],
 };
 
 const initials = (name) =>
@@ -74,6 +80,7 @@ export default function AppLayout() {
     items
       .filter((item) => {
         if (item.adminOnly && user?.role !== "admin") return false;
+        if (item.caOnly   && user?.role !== "ca")     return false;
         if (item.flag && !isEnabled(item.flag))       return false;
         return true;
       })
@@ -174,7 +181,7 @@ export default function AppLayout() {
                 {user?.fullName}
               </div>
               <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10 }}>
-                {user?.role === "admin" ? "Admin" : "Taxpayer"}
+                {user?.role === "admin" ? "Admin" : user?.role === "ca" ? "CA / Tax Professional" : "Taxpayer"}
               </div>
             </div>
           </div>

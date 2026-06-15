@@ -15,4 +15,16 @@ export const env = {
   nodeEnv:       process.env.NODE_ENV || "development",
   encryptionKey: required("ENCRYPTION_KEY"),
   isDev:         process.env.NODE_ENV !== "production",
+  // ITD e-Filing API — optional; if absent the service runs in mock mode
+  itdApiBaseUrl: process.env.ITD_API_BASE_URL || null,
+  itdApiKey:     process.env.ITD_API_KEY     || null,
+  // Gmail SMTP — for approval emails and notifications
+  gmailUser: process.env.GMAIL_USER || null,
+  gmailPass: process.env.GMAIL_APP_PASSWORD || null,
+  // Twilio SMS — optional; if absent SMS is skipped silently
+  twilioSid:   process.env.TWILIO_ACCOUNT_SID  || null,
+  twilioToken: process.env.TWILIO_AUTH_TOKEN   || null,
+  twilioFrom:  process.env.TWILIO_FROM_NUMBER  || null,
+  // App public URL — used in approval email links
+  appUrl: process.env.APP_URL || "http://localhost:5173",
 };
