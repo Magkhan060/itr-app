@@ -56,6 +56,35 @@ This document does not appear to be a Form 16.
 No relevant fields could be found here.
 `;
 
+// Realistic TRACES Form 16 fixture with the exact ambiguous patterns that caused
+// production bugs: merged Part B rows, "80C, 80CCC", "health insurance premia under 80D".
+// Closely mirrors actual TRACES PDF text: "Name and address of the Employee",
+// "17(1) of the Income-tax Act, 1961", merged Part B rows, etc.
+const TRACES_FORM16_TEXT = `
+FORM NO. 16
+Name and address of the Employer: MARKIT INDIA SERVICES PRIVATE LIMITED
+TAN of the Deductor: DELM17484E
+PAN of the Employee: BIGPK1248H
+Name and address of the Employee: MOHAMMED ABDUL GHANI KHAN
+Financial Year: 2024-25
+
+(a) Salary as per provisions contained in section 17(1) of the Income-tax Act, 1961 3531553
+Total deduction under section 80C, 80CCC and 80CCD(1) 168558
+Deduction in respect of health insurance premia under section 80D 0.00
+(e) House rent allowance under section 10(13A) (f) Other special allowances under section 10(14) 0.00
+Total taxable income (9-11) 3456553
+Standard deduction under section 16(ia) 75000
+
+Form No. 16-Annexure
+Basic Salary               1404649
+House Rent Allowance        702325
+Other Allowance            1014464
+Performance Bonus           309227
+Employee Provident Fund     168558
+
+Tax Deducted from salary of the employee under section 192(1) 756045
+`;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper
 // ─────────────────────────────────────────────────────────────────────────────
@@ -210,6 +239,78 @@ describe("Form16 Parser — confidence scoring", () => {
     const result = await parse(MINIMAL_FORM16_TEXT);
     // Should be a round integer (Math.round used in parser)
     expect(Number.isInteger(result.confidence)).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRACES format — real-world ambiguous patterns
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Form16 Parser — TRACES format (real PDF regression tests)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("extracts hraReceived from Annexure section, not from Part B section reference", async () => {
+    // Bug: "House rent allowance under section 10(13A)" in Part B caused [^₹\n\d]*
+    // to capture "10" from "10(13A)". Fix: search only in the Annexure section.
+    const result = await parse(TRACES_FORM16_TEXT);
+    expect(result.hraReceived).toBe(702325);
+  });
+
+  it("extracts hraExempt as 0 when Part B rows are merged by PDF extractor", async () => {
+    // Bug: merged row "10(13A) (f) Other...section 10(14) 0.00" caused [^₹\n\d]*
+    // to absorb "(f)...section " and capture "10" from "10(14)".
+    // Fix: \s+ after 10(13A) — "(f)" is not whitespace followed by digit → fails.
+    const result = await parse(TRACES_FORM16_TEXT);
+    expect(result.hraExempt).toBe(0);
+  });
+
+  it("extracts sec80C from Employee Provident Fund in Annexure", async () => {
+    // Bug: "Total deduction under section 80C, 80CCC and 80CCD(1)" caused
+    // [^₹\n\d]* to absorb ", " and capture "80" from "80CCC".
+    // Fix: search Annexure section; primary pattern targets EPF directly.
+    const result = await parse(TRACES_FORM16_TEXT);
+    expect(result.sec80C).toBe(168558);
+  });
+
+  it("extracts healthInsurance as 0 when only section ref appears after label", async () => {
+    // Bug: "health insurance premia under section 80D" caused [^₹\n\d]*
+    // to absorb " premia under section " and capture "80" from "80D".
+    // Fix: \s+ — "premia" is not a digit → match fails → returns 0.
+    const result = await parse(TRACES_FORM16_TEXT);
+    expect(result.healthInsurance).toBe(0);
+  });
+
+  it("extracts employeeName from 'Name and address of the Employee' header", async () => {
+    // Bug: pattern used "Name\s+of\s+" which skips "Name and address of".
+    const result = await parse(TRACES_FORM16_TEXT);
+    expect(result.employeeName).toMatch(/MOHAMMED ABDUL GHANI KHAN/i);
+  });
+
+  it("extracts grossSalary when 'of the Income-tax Act, 1961' appears after 17(1)", async () => {
+    // Bug: pattern required digit immediately after "17(1)" but TRACES label has
+    // "of the Income-tax Act, 1961" between the section ref and the amount.
+    const result = await parse(TRACES_FORM16_TEXT);
+    expect(result.grossSalary).toBe(3531553);
+  });
+
+  it("extracts totalTaxableIncome from formula reference (9-11)", async () => {
+    const result = await parse(TRACES_FORM16_TEXT);
+    expect(result.totalTaxableIncome).toBe(3456553);
+  });
+
+  it("extracts tdsDeducted from section 192(1) in Form 12BA", async () => {
+    const result = await parse(TRACES_FORM16_TEXT);
+    expect(result.tdsDeducted).toBe(756045);
+  });
+
+  it("extracts basicSalary from Annexure", async () => {
+    const result = await parse(TRACES_FORM16_TEXT);
+    expect(result.basicSalary).toBe(1404649);
+  });
+
+  it("extracts standardDeduction from section 16(ia)", async () => {
+    const result = await parse(TRACES_FORM16_TEXT);
+    expect(result.standardDeduction).toBe(75000);
   });
 });
 

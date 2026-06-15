@@ -22,13 +22,11 @@ export const submitITR1Schema = z.object({
     ifscCode:          z.string(),
   }),
   incomeDetails: z.object({
-    basicSalary:      z.number().min(0),
-    hra_received:     z.number().min(0),
-    specialAllowance: z.number().min(0),
-    bonus:            z.number().min(0).default(0),
-    tdsDeducted:      z.number().min(0),
-    interestIncome:   z.number().min(0).default(0),
-    otherIncome:      z.number().min(0).default(0),
+    grossSalary:    z.number().min(0),
+    hra_received:   z.number().min(0).default(0),
+    tdsDeducted:    z.number().min(0),
+    interestIncome: z.number().min(0).default(0),
+    otherIncome:    z.number().min(0).default(0),
   }),
   deductions: z.object({
     sec80C:           z.number().min(0).default(0),

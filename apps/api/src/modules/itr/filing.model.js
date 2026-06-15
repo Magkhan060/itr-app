@@ -21,10 +21,8 @@ const itr1DataSchema = new mongoose.Schema({
   ifscCode:             { type: String },
 
   // Income
-  basicSalary:        { type: Number, default: 0 },
+  grossSalary:        { type: Number, default: 0 },
   hra_received:       { type: Number, default: 0 },
-  specialAllowance:   { type: Number, default: 0 },
-  bonus:              { type: Number, default: 0 },
   tdsDeducted:        { type: Number, default: 0 },
   interestIncome:     { type: Number, default: 0 },
   otherIncome:        { type: Number, default: 0 },

@@ -47,8 +47,7 @@ export const saveDraft = async (userId, { itrType, assessmentYear, step, data })
 
 export const submitITR1 = async (userId, { personalInfo, incomeDetails, deductions, selectedRegime }) => {
   // Recompute tax server-side — never trust client tax values
-  const grossIncome = incomeDetails.basicSalary + incomeDetails.hra_received +
-                      incomeDetails.specialAllowance + (incomeDetails.bonus || 0);
+  const grossIncome = incomeDetails.grossSalary || 0;
   const otherIncome = (incomeDetails.interestIncome || 0) + (incomeDetails.otherIncome || 0);
 
   const taxResult = compareRegimes({

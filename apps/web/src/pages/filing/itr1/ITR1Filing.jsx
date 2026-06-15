@@ -1,121 +1,165 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Steps, Card, Button, Form, Input, InputNumber,
   Select, DatePicker, Row, Col, Typography,
-  Alert, Divider, Result, Tag, Space,
+  Alert, Divider, Result, Tag, Space, Drawer,
+  Tooltip, Spin, Grid,
 } from "antd";
 import {
   UserOutlined, BankOutlined, FileTextOutlined,
   CheckCircleOutlined, ArrowLeftOutlined, ArrowRightOutlined,
+  FilePdfOutlined, PaperClipOutlined,
 } from "@ant-design/icons";
 import { useAuthStore } from "../../../store/index.js";
 import { useFilingStore } from "../../../store/index.js";
 import { compareRegimes } from "../../../services/tax.service.js";
 import { DEDUCTION_LIMITS, METRO_CITIES } from "@itr-app/shared-types";
 import { saveDraft, submitITR1 } from "../../../services/filing.service.js";
+import { getMyDocuments } from "../../../services/document.service.js";
 import { useNavigate } from "react-router-dom";
-
 
 const { Title, Text } = Typography;
 const { Option }      = Select;
+const { useBreakpoint } = Grid;
 
 const fmt = (n) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })
     .format(n || 0);
 
 const STEPS = [
-  { title: "Personal",   icon: <UserOutlined />,     description: "Your details"     },
-  { title: "Income",     icon: <BankOutlined />,      description: "Salary & others"  },
-  { title: "Deductions", icon: <FileTextOutlined />,  description: "80C, 80D & more"  },
-  { title: "Tax Summary",icon: <CheckCircleOutlined />, description: "Review & file"  },
+  { title: "Personal",    icon: <UserOutlined />,        description: "Your details"     },
+  { title: "Income",      icon: <BankOutlined />,         description: "Salary & others"  },
+  { title: "Deductions",  icon: <FileTextOutlined />,     description: "80C, 80D & more"  },
+  { title: "Tax Summary", icon: <CheckCircleOutlined />,  description: "Review & file"    },
 ];
 
 export default function ITR1Filing() {
-  const { user }   = useAuthStore();
-  const { updateFiling, filingData } = useFilingStore();
-  const [current, setCurrent] = useState(0);
-  const [form]     = Form.useForm();
-  const [taxResult, setTaxResult] = useState(null);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
+  const { user }                         = useAuthStore();
+  const { updateFiling, filingData }     = useFilingStore();
+  const [current, setCurrent]            = useState(0);
+  const [form]                           = Form.useForm();
+  const [taxResult, setTaxResult]        = useState(null);
+  const [loading, setLoading]            = useState(false);
+  const [error, setError]                = useState(null);
+  const navigate                         = useNavigate();
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitted, setSubmitted]         = useState(null);
+  const screens                          = useBreakpoint();
 
-const navigate = useNavigate();
-const [submitLoading, setSubmitLoading] = useState(false);
-const [submitted, setSubmitted]         = useState(null);
+  // ── Form 16 drawer state ─────────────────────────────────────
+  const [drawerOpen, setDrawerOpen]   = useState(false);
+  const [form16Doc, setForm16Doc]     = useState(null);
+  const [docsLoading, setDocsLoading] = useState(false);
 
-const next = async () => {
-  try {
-    await form.validateFields();
-    const values = form.getFieldsValue();
-    updateFiling(`step${current}`, values);
+  useEffect(() => {
+    setDocsLoading(true);
+    getMyDocuments()
+      .then((res) => {
+        const docs   = res.data || [];
+        const latest = docs.find(
+          (d) => d.type === "form16" && d.parseStatus === "success"
+        );
+        setForm16Doc(latest || null);
+      })
+      .catch(() => {})
+      .finally(() => setDocsLoading(false));
+  }, []);
 
-    // Auto-save draft on each step
-    await saveDraft({
-      itrType:        "ITR-1",
-      assessmentYear: "2026-27",
-      step:           current,
-      data:           { ...filingData, [`step${current}`]: values },
-    }).catch(() => {}); // Silent — don't block navigation on draft save failure
+  // Sync user identity fields into the form whenever the user object loads.
+  // initialValue only fires on first mount — if user was null at that point
+  // (page refresh before /auth/me resolves), pan and fullName stay empty.
+  useEffect(() => {
+    if (user?.fullName) form.setFieldValue("fullName", user.fullName);
+    if (user?.pan)      form.setFieldValue("pan",      user.pan);
+  }, [user]);
 
-    if (current === 2) await computeTaxSummary(values);
-    setCurrent((c) => c + 1);
-  } catch (_) {}
-};
+  // Fields that belong to each step — used to scope validateFields() so that
+  // preserved (unmounted) fields from other steps are not re-validated.
+  const STEP_FIELDS = [
+    ["fullName", "pan", "dateOfBirth", "gender", "residentialStatus",
+     "city", "employerName", "employerTAN", "bankAccountNo", "ifscCode"],
+    ["grossSalary", "hra_received", "tdsDeducted", "interestIncome", "otherIncome"],
+    ["sec80C", "sec80CCD1B", "sec80D_self", "sec80D_parents",
+     "homeLoanInterest", "hra_exempt", "lta", "sec80TTA_TTB", "sec80G"],
+  ];
 
-const handleSubmit = async () => {
-  if (!taxResult) return;
-  setSubmitLoading(true);
-  try {
-    const s0 = filingData.step0 || {};
-    const s1 = filingData.step1 || {};
-    const s2 = filingData.step2 || {};
+  // ── Draft & navigation ───────────────────────────────────────
+  const next = async () => {
+    try {
+      await form.validateFields(STEP_FIELDS[current]);
+      const values = form.getFieldsValue();
+      updateFiling(`step${current}`, values);
 
-    const payload = {
-      selectedRegime: taxResult.betterRegime === "equal" ? "new" : taxResult.betterRegime,
-      personalInfo: {
-        fullName:          s0.fullName,
-        pan:               s0.pan || user?.pan,
-        dateOfBirth:       s0.dateOfBirth?.format?.("YYYY-MM-DD") || null,
-        gender:            s0.gender,
-        residentialStatus: s0.residentialStatus || "ROR",
-        city:              s0.city,
-        employerName:      s0.employerName,
-        employerTAN:       s0.employerTAN,
-        bankAccountNo:     s0.bankAccountNo,
-        ifscCode:          s0.ifscCode,
-      },
-      incomeDetails: {
-        basicSalary:      s1.basicSalary      || 0,
-        hra_received:     s1.hra_received     || 0,
-        specialAllowance: s1.specialAllowance || 0,
-        bonus:            s1.bonus            || 0,
-        tdsDeducted:      s1.tdsDeducted      || 0,
-        interestIncome:   s1.interestIncome   || 0,
-        otherIncome:      s1.otherIncome      || 0,
-      },
-      deductions: {
-        sec80C:           s2.sec80C           || 0,
-        sec80CCD1B:       s2.sec80CCD1B       || 0,
-        sec80D_self:      s2.sec80D_self      || 0,
-        sec80D_parents:   s2.sec80D_parents   || 0,
-        homeLoanInterest: s2.homeLoanInterest || 0,
-        hra_exempt:       s2.hra_exempt       || 0,
-        lta:              s2.lta              || 0,
-        sec80TTA_TTB:     s2.sec80TTA_TTB     || 0,
-        sec80G:           s2.sec80G           || 0,
-      },
-    };
+      // Serialize dayjs dateOfBirth before JSON transport to avoid circular-ref warning
+      const draftValues = { ...values };
+      if (draftValues.dateOfBirth?.format) {
+        draftValues.dateOfBirth = draftValues.dateOfBirth.format("YYYY-MM-DD");
+      }
 
-    const res = await submitITR1(payload);
-    setSubmitted(res.data);
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setSubmitLoading(false);
-  }
-};
+      await saveDraft({
+        itrType:        "ITR-1",
+        assessmentYear: "2026-27",
+        step:           current,
+        data:           { ...filingData, [`step${current}`]: draftValues },
+      }).catch(() => {});
+
+      if (current === 2) await computeTaxSummary(values);
+      setCurrent((c) => c + 1);
+    } catch (_) {}
+  };
 
   const prev = () => setCurrent((c) => c - 1);
+
+  const handleSubmit = async () => {
+    if (!taxResult) return;
+    setSubmitLoading(true);
+    try {
+      const s0 = filingData.step0 || {};
+      const s1 = filingData.step1 || {};
+      const s2 = filingData.step2 || {};
+
+      const payload = {
+        selectedRegime: taxResult.betterRegime === "equal" ? "new" : taxResult.betterRegime,
+        personalInfo: {
+          fullName:          s0.fullName,
+          pan:               s0.pan || user?.pan,
+          dateOfBirth:       s0.dateOfBirth?.format?.("YYYY-MM-DD") || null,
+          gender:            s0.gender,
+          residentialStatus: s0.residentialStatus || "ROR",
+          city:              s0.city,
+          employerName:      s0.employerName,
+          employerTAN:       s0.employerTAN,
+          bankAccountNo:     s0.bankAccountNo,
+          ifscCode:          s0.ifscCode,
+        },
+        incomeDetails: {
+          grossSalary:    s1.grossSalary    || 0,
+          hra_received:   s1.hra_received   || 0,
+          tdsDeducted:    s1.tdsDeducted    || 0,
+          interestIncome: s1.interestIncome || 0,
+          otherIncome:    s1.otherIncome    || 0,
+        },
+        deductions: {
+          sec80C:           s2.sec80C           || 0,
+          sec80CCD1B:       s2.sec80CCD1B       || 0,
+          sec80D_self:      s2.sec80D_self      || 0,
+          sec80D_parents:   s2.sec80D_parents   || 0,
+          homeLoanInterest: s2.homeLoanInterest  || 0,
+          hra_exempt:       s2.hra_exempt        || 0,
+          lta:              s2.lta              || 0,
+          sec80TTA_TTB:     s2.sec80TTA_TTB     || 0,
+          sec80G:           s2.sec80G           || 0,
+        },
+      };
+
+      const res = await submitITR1(payload);
+      setSubmitted(res.data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
 
   const computeTaxSummary = async (values) => {
     setLoading(true);
@@ -123,16 +167,15 @@ const handleSubmit = async () => {
     try {
       const allData = { ...filingData.step0, ...filingData.step1, ...values };
       const payload = {
-        grossIncome: allData.basicSalary + allData.hra_received +
-                     allData.specialAllowance + (allData.bonus || 0),
+        grossIncome: allData.grossSalary || 0,
         otherIncome: (allData.interestIncome || 0) + (allData.otherIncome || 0),
-        dateOfBirth: allData.dateOfBirth?.format("YYYY-MM-DD") || user?.dateOfBirth,
+        dateOfBirth: allData.dateOfBirth?.format?.("YYYY-MM-DD") || user?.dateOfBirth,
         deductions: {
           sec80C:           allData.sec80C           || 0,
           sec80CCD1B:       allData.sec80CCD1B       || 0,
           sec80D_self:      allData.sec80D_self       || 0,
           sec80D_parents:   allData.sec80D_parents   || 0,
-          homeLoanInterest: allData.homeLoanInterest || 0,
+          homeLoanInterest: allData.homeLoanInterest  || 0,
           hra:              allData.hra_exempt        || 0,
           lta:              allData.lta              || 0,
           sec80TTA_TTB:     allData.sec80TTA_TTB     || 0,
@@ -148,7 +191,7 @@ const handleSubmit = async () => {
     }
   };
 
-  // ── Step 0: Personal Info ──────────────────────────────────
+  // ── Step 0: Personal Info ────────────────────────────────────
   const PersonalInfo = () => (
     <>
       <Alert
@@ -158,6 +201,7 @@ const handleSubmit = async () => {
       <Row gutter={16}>
         <Col xs={24} sm={12}>
           <Form.Item name="fullName" label="Full Name (as per PAN)"
+            tooltip="Form 16 → top section: 'Name and address of the Employee'. Copy exactly as printed — it must match your PAN card."
             rules={[{ required: true }]}
             initialValue={user?.fullName}
           >
@@ -166,6 +210,7 @@ const handleSubmit = async () => {
         </Col>
         <Col xs={24} sm={12}>
           <Form.Item name="pan" label="PAN Number"
+            tooltip="Form 16 → top section: 'PAN of the Employee / Specified senior citizen'. Pre-filled from your account — verify it matches."
             rules={[{ required: true }]}
             initialValue={user?.pan}
           >
@@ -174,6 +219,7 @@ const handleSubmit = async () => {
         </Col>
         <Col xs={24} sm={12}>
           <Form.Item name="dateOfBirth" label="Date of Birth"
+            tooltip="Not on Form 16 — enter your actual date of birth as per PAN card. Required to determine senior citizen tax slabs."
             rules={[{ required: true, message: "DOB is required" }]}
           >
             <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
@@ -181,6 +227,7 @@ const handleSubmit = async () => {
         </Col>
         <Col xs={24} sm={12}>
           <Form.Item name="gender" label="Gender"
+            tooltip="Not on Form 16 — select as per your PAN card records."
             rules={[{ required: true }]}
           >
             <Select placeholder="Select gender">
@@ -192,11 +239,11 @@ const handleSubmit = async () => {
         </Col>
         <Col xs={24} sm={12}>
           <Form.Item name="residentialStatus" label="Residential Status"
-            rules={[{ required: true }]}
-            initialValue="ROR"
+            tooltip="For most salaried employees in India this is 'Resident & Ordinarily Resident (ROR)'. Select RNOR or NR only if you lived abroad for a significant period during FY 2025-26."
+            rules={[{ required: true }]} initialValue="ROR"
           >
             <Select>
-              <Option value="ROR">Resident & Ordinarily Resident</Option>
+              <Option value="ROR">Resident &amp; Ordinarily Resident</Option>
               <Option value="RNOR">Resident but Not Ordinarily Resident</Option>
               <Option value="NR">Non-Resident</Option>
             </Select>
@@ -204,17 +251,22 @@ const handleSubmit = async () => {
         </Col>
         <Col xs={24} sm={12}>
           <Form.Item name="city" label="City of Employment"
+            tooltip="Your primary city of work during FY 2025-26. Metro cities (Mumbai, Delhi, Kolkata, Chennai) get a higher HRA exemption limit of 50% of basic salary."
             rules={[{ required: true }]}
           >
             <Select placeholder="Select city" showSearch>
               {[...METRO_CITIES, "Bengaluru", "Hyderabad", "Pune", "Ahmedabad", "Other"]
-                .map((c) => <Option key={c} value={c}>{c} {METRO_CITIES.includes(c) ? "🏙 Metro" : ""}</Option>)
-              }
+                .map((c) => (
+                  <Option key={c} value={c}>
+                    {c} {METRO_CITIES.includes(c) ? "🏙 Metro" : ""}
+                  </Option>
+                ))}
             </Select>
           </Form.Item>
         </Col>
         <Col xs={24}>
           <Form.Item name="employerName" label="Employer Name"
+            tooltip="Form 16 → top section: 'Name and address of the Employer / Specified Bank'. Copy the company name exactly."
             rules={[{ required: true }]}
           >
             <Input placeholder="ABC Pvt Ltd" />
@@ -222,6 +274,7 @@ const handleSubmit = async () => {
         </Col>
         <Col xs={24} sm={12}>
           <Form.Item name="employerTAN" label="Employer TAN"
+            tooltip="Form 16 → top section: 'TAN of the Deductor'. A 10-character code like DELM17484F. Required to credit your TDS against your tax liability."
             rules={[
               { required: true },
               { pattern: /^[A-Z]{4}[0-9]{5}[A-Z]{1}$/, message: "Invalid TAN" },
@@ -234,6 +287,7 @@ const handleSubmit = async () => {
         </Col>
         <Col xs={24} sm={12}>
           <Form.Item name="bankAccountNo" label="Bank Account Number"
+            tooltip="Not on Form 16 — this is your bank account where any tax refund will be credited. Use the account linked to your PAN."
             rules={[{ required: true }]}
           >
             <Input placeholder="For refund credit" />
@@ -241,6 +295,7 @@ const handleSubmit = async () => {
         </Col>
         <Col xs={24} sm={12}>
           <Form.Item name="ifscCode" label="IFSC Code"
+            tooltip="Not on Form 16 — the IFSC code of your bank branch. Find it on your cheque book, passbook, or net banking portal."
             rules={[
               { required: true },
               { pattern: /^[A-Z]{4}0[A-Z0-9]{6}$/, message: "Invalid IFSC" },
@@ -255,20 +310,48 @@ const handleSubmit = async () => {
     </>
   );
 
-  // ── Step 1: Income ─────────────────────────────────────────
+  // ── Step 1: Income ───────────────────────────────────────────
+  const SALARY_FIELDS = [
+    {
+      name:     "grossSalary",
+      label:    "Gross Salary (₹)",
+      required: true,
+      tip:      "Form 16 → Part B: 'Salary as per provisions contained in section 17(1) of the Income-tax Act, 1961'. This is your total gross salary before any deductions — copy the exact figure printed there.",
+    },
+    {
+      name:     "hra_received",
+      label:    "HRA Received (₹)",
+      required: false,
+      tip:      "Form 16 → Annexure (last pages): look for 'House Rent Allowance'. This is the total HRA your employer paid you during the year — needed to compute your HRA exemption in the next step. Enter 0 if your employer does not pay HRA.",
+    },
+    {
+      name:     "tdsDeducted",
+      label:    "TDS Already Deducted (₹)",
+      required: true,
+      tip:      "Form 16 → Part A summary table: the total 'Amount of tax deposited / remitted' column, OR Part B row labeled 'Tax deducted at source u/s 192(1)'. This is the total TDS your employer deducted across all four quarters.",
+    },
+  ];
+
+  const OTHER_INCOME_FIELDS = [
+    {
+      name:  "interestIncome",
+      label: "Interest Income (FD/Savings) (₹)",
+      tip:   "Not on Form 16 — check your bank's Form 26AS or Annual Information Statement (AIS) for interest credited on FDs and savings accounts during FY 2025-26.",
+    },
+    {
+      name:  "otherIncome",
+      label: "Any Other Income (₹)",
+      tip:   "Not on Form 16 — include freelance income, rental income, capital gains, or any other taxable receipts not covered above.",
+    },
+  ];
+
   const IncomeDetails = () => (
     <>
       <Title level={5}>Salary Income</Title>
       <Row gutter={16}>
-        {[
-          { name: "basicSalary",       label: "Basic Salary (₹)",        required: true  },
-          { name: "hra_received",      label: "HRA Received (₹)",        required: true  },
-          { name: "specialAllowance",  label: "Special Allowance (₹)",   required: true  },
-          { name: "bonus",             label: "Bonus / Incentives (₹)",  required: false },
-          { name: "tdsDeducted",       label: "TDS Already Deducted (₹)", required: true },
-        ].map(({ name, label, required }) => (
+        {SALARY_FIELDS.map(({ name, label, required, tip }) => (
           <Col xs={24} sm={12} key={name}>
-            <Form.Item name={name} label={label}
+            <Form.Item name={name} label={label} tooltip={tip}
               rules={required ? [{ required: true, message: `${label} is required` }] : []}
             >
               <InputNumber
@@ -285,12 +368,9 @@ const handleSubmit = async () => {
       <Divider />
       <Title level={5}>Other Income</Title>
       <Row gutter={16}>
-        {[
-          { name: "interestIncome", label: "Interest Income (FD/Savings) (₹)" },
-          { name: "otherIncome",    label: "Any Other Income (₹)"             },
-        ].map(({ name, label }) => (
+        {OTHER_INCOME_FIELDS.map(({ name, label, tip }) => (
           <Col xs={24} sm={12} key={name}>
-            <Form.Item name={name} label={label}>
+            <Form.Item name={name} label={label} tooltip={tip}>
               <InputNumber
                 style={{ width: "100%" }} min={0}
                 formatter={(v) => `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
@@ -304,7 +384,64 @@ const handleSubmit = async () => {
     </>
   );
 
-  // ── Step 2: Deductions ─────────────────────────────────────
+  // ── Step 2: Deductions ───────────────────────────────────────
+  const DEDUCTION_FIELDS = [
+    {
+      name:  "sec80C",
+      label: "80C — PF, PPF, ELSS, LIC",
+      max:   DEDUCTION_LIMITS.SEC_80C,
+      tip:   "Form 16 → Part B: 'Total deduction under section 80C, 80CCC and 80CCD(1)'. Includes Employee PF (shown in Annexure), PPF, ELSS mutual funds, LIC premiums, and home loan principal. Capped at ₹1,50,000.",
+    },
+    {
+      name:  "sec80CCD1B",
+      label: "80CCD(1B) — NPS",
+      max:   DEDUCTION_LIMITS.SEC_80CCD_1B,
+      tip:   "Form 16 → Part B: look for '80CCD(1B)' — additional NPS contribution over and above the 80C limit. Max ₹50,000 extra deduction. Leave blank if you did not contribute to NPS separately.",
+    },
+    {
+      name:  "sec80D_self",
+      label: "80D — Health Insurance (Self)",
+      max:   DEDUCTION_LIMITS.SEC_80D_SELF,
+      tip:   "Form 16 → Part B: 'Deduction in respect of health insurance premia under section 80D'. Covers premium paid for self, spouse, and children. Max ₹25,000 (₹50,000 if you are a senior citizen).",
+    },
+    {
+      name:  "sec80D_parents",
+      label: "80D — Health Insurance (Parents)",
+      max:   DEDUCTION_LIMITS.SEC_80D_PARENTS,
+      tip:   "Not always on Form 16 — enter the health insurance premium you paid for your parents. Max ₹25,000 (₹50,000 if parents are senior citizens). Keep the premium receipt.",
+    },
+    {
+      name:  "homeLoanInterest",
+      label: "24(b) — Home Loan Interest",
+      max:   200000,
+      tip:   "Form 16 → Part B: look for 'Loss from house property' or '24(b)'. Enter the interest portion of your home loan EMIs paid during FY 2025-26. Max ₹2,00,000 for self-occupied property. Get the certificate from your bank.",
+    },
+    {
+      name:  "hra_exempt",
+      label: "HRA Exemption",
+      max:   null,
+      tip:   "Form 16 → Part B: 'House rent allowance under section 10(13A)'. This is the tax-exempt portion of HRA — calculated as the least of: actual HRA received, rent paid minus 10% of basic, or 50%/40% of basic (metro/non-metro). Enter 0 if you live in your own house.",
+    },
+    {
+      name:  "lta",
+      label: "LTA Exemption",
+      max:   null,
+      tip:   "Form 16 → Part B: 'Leave travel concession or assistance under section 10(5)'. Enter the LTA amount your employer has exempted. Covers actual travel fare for domestic trips twice in a 4-year block. Leave blank if not claimed.",
+    },
+    {
+      name:  "sec80TTA_TTB",
+      label: "80TTA/TTB — Savings Interest",
+      max:   DEDUCTION_LIMITS.SEC_80TTA,
+      tip:   "Usually not on Form 16 — check your bank statement or Form 26AS. Enter interest earned on savings accounts (80TTA, max ₹10,000) or all interest if you are a senior citizen (80TTB, max ₹50,000).",
+    },
+    {
+      name:  "sec80G",
+      label: "80G — Donations",
+      max:   null,
+      tip:   "Usually not on Form 16 — enter donations made to eligible charitable organisations (PM Relief Fund, temples, NGOs with 80G registration). Keep the donation receipt. Only the deductible portion (50% or 100% depending on the organisation) applies.",
+    },
+  ];
+
   const DeductionsForm = () => (
     <>
       <Alert
@@ -312,20 +449,11 @@ const handleSubmit = async () => {
         type="warning" showIcon style={{ marginBottom: 20, borderRadius: 8 }}
       />
       <Row gutter={16}>
-        {[
-          { name: "sec80C",           label: "80C — PF, PPF, ELSS, LIC",        max: DEDUCTION_LIMITS.SEC_80C       },
-          { name: "sec80CCD1B",       label: "80CCD(1B) — NPS",                 max: DEDUCTION_LIMITS.SEC_80CCD_1B  },
-          { name: "sec80D_self",      label: "80D — Health Insurance (Self)",    max: DEDUCTION_LIMITS.SEC_80D_SELF  },
-          { name: "sec80D_parents",   label: "80D — Health Insurance (Parents)", max: DEDUCTION_LIMITS.SEC_80D_PARENTS },
-          { name: "homeLoanInterest", label: "24(b) — Home Loan Interest",       max: 200000                         },
-          { name: "hra_exempt",       label: "HRA Exemption",                    max: null                           },
-          { name: "lta",              label: "LTA Exemption",                    max: null                           },
-          { name: "sec80TTA_TTB",     label: "80TTA/TTB — Savings Interest",     max: DEDUCTION_LIMITS.SEC_80TTA     },
-          { name: "sec80G",           label: "80G — Donations",                  max: null                           },
-        ].map(({ name, label, max }) => (
+        {DEDUCTION_FIELDS.map(({ name, label, max, tip }) => (
           <Col xs={24} sm={12} key={name}>
             <Form.Item
               name={name}
+              tooltip={tip}
               label={
                 <span>
                   {label}
@@ -350,7 +478,7 @@ const handleSubmit = async () => {
     </>
   );
 
-  // ── Step 3: Tax Summary ────────────────────────────────────
+  // ── Step 3: Tax Summary ──────────────────────────────────────
   const TaxSummary = () => {
     if (loading) return <div className="text-center py-10"><Text>Computing your taxes...</Text></div>;
     if (error)   return <Alert type="error" message={error} showIcon />;
@@ -361,7 +489,6 @@ const handleSubmit = async () => {
 
     return (
       <>
-        {/* Regime recommendation */}
         <Alert
           message={
             <Text>
@@ -378,7 +505,6 @@ const handleSubmit = async () => {
           style={{ marginBottom: 20, borderRadius: 8 }}
         />
 
-        {/* Side-by-side summary */}
         <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
           {[
             { label: "Old Regime", data: o },
@@ -386,7 +512,7 @@ const handleSubmit = async () => {
           ].map(({ label, data }) => (
             <Col span={12} key={label}>
               <Card
-                bordered={false}
+                variant="borderless"
                 size="small"
                 style={{
                   borderRadius: 10,
@@ -400,13 +526,13 @@ const handleSubmit = async () => {
                 }
               >
                 {[
-                  ["Gross Income",      data.grossIncome],
-                  ["Deductions",        data.deductionTotal],
-                  ["Taxable Income",    data.taxableIncome],
-                  ["Rebate 87A",        data.rebateApplied],
-                  ["Surcharge",         data.surcharge],
-                  ["Cess (4%)",         data.cess],
-                  ["Total Tax",         data.totalTax],
+                  ["Gross Income",   data.grossIncome],
+                  ["Deductions",     data.deductionTotal],
+                  ["Taxable Income", data.taxableIncome],
+                  ["Rebate 87A",     data.rebateApplied],
+                  ["Surcharge",      data.surcharge],
+                  ["Cess (4%)",      data.cess],
+                  ["Total Tax",      data.totalTax],
                 ].map(([lbl, val]) => (
                   <div key={lbl}
                     className="flex justify-between py-1"
@@ -438,75 +564,99 @@ const handleSubmit = async () => {
   };
 
   const stepContent = [
-    <PersonalInfo key="0" />,
-    <IncomeDetails key="1" />,
+    <PersonalInfo   key="0" />,
+    <IncomeDetails  key="1" />,
     <DeductionsForm key="2" />,
-    <TaxSummary key="3" />,
+    <TaxSummary     key="3" />,
   ];
-  
-if (submitted) {
-  return (
-    <Result
-      status="success"
-      title="ITR-1 Filed Successfully!"
-      subTitle={
-        <div>
-          <p>Acknowledgement No: <strong>{submitted.acknowledgementNo}</strong></p>
-          <p>Assessment Year: <strong>AY 2026-27</strong></p>
-          <p>Total Tax Payable:{" "}
-            <strong style={{ color: "#1677ff" }}>
-              {fmt(submitted.taxSummary?.totalTax)}
-            </strong>
-          </p>
-          <p style={{ marginTop: 8, color: "#8c8c8c", fontSize: 12 }}>
-            Please save your acknowledgement number for future reference.
-          </p>
-        </div>
-      }
-      extra={[
-        <Button type="primary" key="dashboard" onClick={() => navigate("/dashboard")}>
-          Go to Dashboard
-        </Button>,
-        <Button key="download" disabled>
-          Download ITR-V (Coming Soon)
-        </Button>,
-      ]}
-    />
-  );
-}
+
+  // ── Submission success screen ────────────────────────────────
+  if (submitted) {
+    return (
+      <Result
+        status="success"
+        title="ITR-1 Filed Successfully!"
+        subTitle={
+          <div>
+            <p>Acknowledgement No: <strong>{submitted.acknowledgementNo}</strong></p>
+            <p>Assessment Year: <strong>AY 2026-27</strong></p>
+            <p>Total Tax Payable:{" "}
+              <strong style={{ color: "#1677ff" }}>
+                {fmt(submitted.taxSummary?.totalTax)}
+              </strong>
+            </p>
+            <p style={{ marginTop: 8, color: "#8c8c8c", fontSize: 12 }}>
+              Please save your acknowledgement number for future reference.
+            </p>
+          </div>
+        }
+        extra={[
+          <Button type="primary" key="dashboard" onClick={() => navigate("/dashboard")}>
+            Go to Dashboard
+          </Button>,
+          <Button key="download" disabled>
+            Download ITR-V (Coming Soon)
+          </Button>,
+        ]}
+      />
+    );
+  }
+
+  // Drawer width: full-screen on mobile, 680px on desktop
+  const drawerWidth = screens.lg ? 680 : "100%";
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <FileTextOutlined style={{ fontSize: 28, color: "#1677ff" }} />
-        <div>
-          <Title level={3} style={{ margin: 0 }}>ITR-1 Filing — Sahaj</Title>
-          <Text type="secondary">Salaried individuals | FY 2025-26 | AY 2026-27</Text>
+      {/* ── Page header ─────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <FileTextOutlined style={{ fontSize: 28, color: "#1677ff" }} />
+          <div>
+            <Title level={3} style={{ margin: 0 }}>ITR-1 Filing — Sahaj</Title>
+            <Text type="secondary">Salaried individuals | FY 2025-26 | AY 2026-27</Text>
+          </div>
         </div>
+
+        {/* Form 16 reference button */}
+        <Tooltip
+          title={
+            docsLoading  ? "Checking for Form 16…" :
+            form16Doc    ? `Open ${form16Doc.originalName} for reference` :
+                           "No Form 16 uploaded — upload from Profile"
+          }
+        >
+          <Button
+            icon={docsLoading ? <Spin size="small" /> : <PaperClipOutlined />}
+            onClick={() => setDrawerOpen(true)}
+            disabled={docsLoading}
+            style={{
+              borderColor: form16Doc ? "#1677ff" : undefined,
+              color:       form16Doc ? "#1677ff" : undefined,
+            }}
+          >
+            {screens.sm ? "View Form 16" : ""}
+          </Button>
+        </Tooltip>
       </div>
 
       {/* Steps indicator */}
-      <Card bordered={false} style={{ borderRadius: 10, marginBottom: 24 }}>
+      <Card variant="borderless" style={{ borderRadius: 10, marginBottom: 24 }}>
         <Steps current={current} items={STEPS} />
       </Card>
 
       {/* Step content */}
-      <Card bordered={false} style={{ borderRadius: 10, marginBottom: 16 }}>
+      <Card variant="borderless" style={{ borderRadius: 10, marginBottom: 16 }}>
         <Form form={form} layout="vertical" size="large">
           {stepContent[current]}
         </Form>
       </Card>
 
       {/* Navigation */}
-      <Card bordered={false} style={{ borderRadius: 10 }}>
+      <Card variant="borderless" style={{ borderRadius: 10 }}>
         <Row justify="space-between">
           <Col>
             {current > 0 && (
-              <Button
-                icon={<ArrowLeftOutlined />}
-                onClick={prev}
-                size="large"
-              >
+              <Button icon={<ArrowLeftOutlined />} onClick={prev} size="large">
                 Previous
               </Button>
             )}
@@ -533,11 +683,53 @@ if (submitted) {
               >
                 Submit ITR-1
               </Button>
-
             )}
           </Col>
         </Row>
       </Card>
+
+      {/* ── Form 16 Reference Drawer ─────────────────────────── */}
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        width={drawerWidth}
+        title={
+          <Space>
+            <FilePdfOutlined style={{ color: "#ff4d4f" }} />
+            <span>
+              {form16Doc ? form16Doc.originalName : "Form 16 Reference"}
+            </span>
+            {form16Doc && (
+              <Tag color="blue" style={{ fontSize: 11 }}>
+                FY {form16Doc.financialYear}
+              </Tag>
+            )}
+          </Space>
+        }
+        styles={{ body: { padding: 0, display: "flex", flexDirection: "column" } }}
+      >
+        {form16Doc ? (
+          <iframe
+            src={`/uploads/${form16Doc.storedName}`}
+            title="Form 16 PDF"
+            style={{ flex: 1, width: "100%", height: "100%", border: "none", minHeight: "80vh" }}
+          />
+        ) : (
+          <div style={{ padding: 32, textAlign: "center" }}>
+            <FilePdfOutlined style={{ fontSize: 48, color: "#d9d9d9", marginBottom: 16 }} />
+            <Title level={5} style={{ color: "#8c8c8c" }}>No Form 16 uploaded</Title>
+            <Text type="secondary" style={{ display: "block", marginBottom: 20 }}>
+              Upload your Form 16 PDF from your Profile to view it here as a reference while filling the ITR form.
+            </Text>
+            <Button
+              type="primary"
+              onClick={() => { setDrawerOpen(false); navigate("/profile"); }}
+            >
+              Go to Profile to Upload
+            </Button>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

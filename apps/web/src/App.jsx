@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore, useFlagsStore } from "./store/index.js";
 import api from "./services/api.js";
 import AppLayout from "./components/layout/AppLayout.jsx";
-// import { useAuthStore } from "./store/index.js";
 const AdminLayout = React.lazy(() => import("./pages/admin/AdminLayout.jsx"));
 // Add AdminRoute guard
 const AdminRoute = ({ children }) => {
@@ -43,7 +42,20 @@ const AdvanceTax = React.lazy(() => import("./pages/calculator/AdvanceTax.jsx"))
 const RefundTracker = React.lazy(() => import("./pages/filing/RefundTracker.jsx"));
 
 export default function App() {
-  const setFlags = useFlagsStore((s) => s.setFlags);
+  const setFlags        = useFlagsStore((s) => s.setFlags);
+  const { token, user, setUser, logout } = useAuthStore();
+
+  // Restore the user object after a page refresh.
+  // The token survives in localStorage but the Zustand user is in-memory only,
+  // so it resets to null on every refresh. Fetch /auth/me once on mount when
+  // we have a token but no user object yet.
+  useEffect(() => {
+    if (token && !user) {
+      api.get("/auth/me")
+        .then((res) => setUser(res.data))
+        .catch(() => logout());
+    }
+  }, []);
 
   useEffect(() => {
     api.get("/features").then((res) => setFlags(res.data)).catch(() => {});
