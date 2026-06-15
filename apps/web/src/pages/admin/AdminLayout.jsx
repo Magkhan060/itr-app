@@ -1,42 +1,46 @@
 import React from "react";
-import { Tabs, Typography } from "antd";
+import { Tabs, Typography, Space, Tag } from "antd";
 import {
-  DashboardOutlined, UserOutlined, SettingOutlined,
+  DashboardOutlined, TeamOutlined, ControlOutlined, AuditOutlined,
 } from "@ant-design/icons";
-import AdminDashboard  from "./AdminDashboard.jsx";
-import AdminUsers      from "./AdminUsers.jsx";
-import AdminFlags      from "./AdminFlags.jsx";
+import AdminDashboard from "./AdminDashboard.jsx";
+import AdminUsers     from "./AdminUsers.jsx";
+import AdminFlags     from "./AdminFlags.jsx";
+import AdminAuditLog  from "./AdminAuditLog.jsx";
 
 const { Title } = Typography;
 
-export default function AdminLayout() {
-  const tabs = [
-    {
-      key:      "dashboard",
-      label:    <span><DashboardOutlined /> Overview</span>,
-      children: <AdminDashboard />,
-    },
-    {
-      key:      "users",
-      label:    <span><UserOutlined /> Users</span>,
-      children: <AdminUsers />,
-    },
-    {
-      key:      "flags",
-      label:    <span><SettingOutlined /> Feature Flags</span>,
-      children: <AdminFlags />,
-    },
-  ];
+const TABS = [
+  {
+    key:      "dashboard",
+    label:    <Space><DashboardOutlined /> Overview</Space>,
+    children: <AdminDashboard />,
+  },
+  {
+    key:      "users",
+    label:    <Space><TeamOutlined /> Users</Space>,
+    children: <AdminUsers />,
+  },
+  {
+    key:      "flags",
+    label:    <Space><ControlOutlined /> Feature Flags</Space>,
+    children: <AdminFlags />,
+  },
+  {
+    key:      "audit",
+    label:    <Space><AuditOutlined /> Audit Log</Space>,
+    children: <AdminAuditLog />,
+  },
+];
 
+export default function AdminLayout() {
   return (
     <div>
-      <div className="mb-6">
+      <div style={{ marginBottom: 20, display: "flex", alignItems: "baseline", gap: 12 }}>
         <Title level={3} style={{ margin: 0 }}>Admin Panel</Title>
-        <Typography.Text type="secondary">
-          Platform management — ITR Filing App
-        </Typography.Text>
+        <Tag color="gold">Platform Management</Tag>
       </div>
-      <Tabs defaultActiveKey="dashboard" items={tabs} size="large" />
+      <Tabs defaultActiveKey="dashboard" items={TABS} size="large" />
     </div>
   );
 }

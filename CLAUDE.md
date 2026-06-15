@@ -115,7 +115,7 @@ VITE_API_BASE_URL=[localhost](http://localhost:5000/api)
   packages/shared-types/slabs/fyYYYY-YY.js
 - PAN format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
 - Aadhaar: 12-digit numeric, validate with Luhn-like verhoeff check
-- All monetary values stored in PAISE (integer) in DB, converted to INR in API responses
+- All monetary values stored in INR (Number) in DB — the codebase uses INR end-to-end; do not silently mix units
 - Assessment Year = Financial Year + 1 (FY 2025-26 → AY 2026-27)
 - TDS entries must always carry: TAN, deductor name, amount, quarter
 

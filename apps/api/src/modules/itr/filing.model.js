@@ -17,8 +17,8 @@ const itr1DataSchema = new mongoose.Schema({
   city:               { type: String },
   employerName:       { type: String },
   employerTAN:        { type: String },
-  bankAccountNo:      { type: String },
-  ifscCode:           { type: String },
+  bankAccountEncrypted: { type: String },   // AES-256-CBC encrypted
+  ifscCode:             { type: String },
 
   // Income
   basicSalary:        { type: Number, default: 0 },
@@ -39,7 +39,8 @@ const itr1DataSchema = new mongoose.Schema({
   hra_exempt:         { type: Number, default: 0 },
   lta:                { type: Number, default: 0 },
   sec80TTA_TTB:       { type: Number, default: 0 },
-  sec80G:             { type: Number, default: 0 },
+  sec80G_cash:        { type: Number, default: 0 },  // Cash donations — capped at ₹2,000 per Sec 80G
+  sec80G_cheque:      { type: Number, default: 0 },  // Cheque/digital donations — fully qualifying
 
   // Tax computation result
   selectedRegime:     { type: String, enum: ["old","new"], default: "new" },

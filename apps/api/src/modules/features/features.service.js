@@ -1,5 +1,6 @@
 import FeatureFlag from "./features.model.js";
 import { FLAGS }   from "@itr-app/feature-flags";
+import AuditLog    from "../admin/audit.model.js";
 
 // Seed DB with default flags from packages/feature-flags on first run
 export const seedFlags = async () => {
@@ -25,12 +26,23 @@ export const getAllFlags = async () => {
 };
 
 export const toggleFlag = async (key, enabled, userId) => {
-  const flag = await FeatureFlag.findOneAndUpdate(
-    { key: key.toUpperCase() },
+  const upperKey = key.toUpperCase();
+  const before   = await FeatureFlag.findOne({ key: upperKey }).select("enabled").lean();
+  const flag     = await FeatureFlag.findOneAndUpdate(
+    { key: upperKey },
     { $set: { enabled, updatedBy: userId } },
     { new: true }
   );
   if (!flag) throw Object.assign(new Error(`Flag "${key}" not found`), { status: 404 });
+
+  await AuditLog.create({
+    adminId:   userId,
+    action:    "FLAG_TOGGLED",
+    targetKey: upperKey,
+    before:    { enabled: before?.enabled },
+    after:     { enabled },
+  });
+
   return flag;
 };
 

@@ -69,7 +69,9 @@ export const computeOldRegimeDeductions = (deductions = {}, age = 30) => {
     sec80CCD1B       = 0,
     sec80D_self      = 0,
     sec80D_parents   = 0,
-    sec80G           = 0,
+    sec80G           = 0,   // legacy combined field — treated as digital/cheque donation
+    sec80G_cash      = 0,
+    sec80G_cheque    = 0,
     sec80TTA_TTB     = 0,
     homeLoanInterest = 0,
     hra              = 0,
@@ -94,10 +96,15 @@ export const computeOldRegimeDeductions = (deductions = {}, age = 30) => {
     sec80TTA_TTB,
     isSenior ? DEDUCTION_LIMITS.SEC_80TTB : DEDUCTION_LIMITS.SEC_80TTA
   );
-  const dHLP       = Math.min(homeLoanInterest, 200000); // Section 24(b)
+  const dHLP = Math.min(homeLoanInterest, 200000); // Section 24(b)
+
+  // 80G: cash capped at ₹2,000 (Sec 80G proviso); digital/cheque unrestricted.
+  // Legacy `sec80G` field (from older API callers) treated as digital donation.
+  const d80G_cash   = Math.min(sec80G_cash, DEDUCTION_LIMITS.SEC_80G_CASH_LIMIT);
+  const d80G        = d80G_cash + sec80G_cheque + sec80G;
 
   const total = d80C + d80CCD1B + d80D_self + d80D_par +
-                d80TTA_TTB + dHLP + hra + lta + sec80G + otherDeductions;
+                d80TTA_TTB + dHLP + hra + lta + d80G + otherDeductions;
 
   return {
     breakdown: {
@@ -109,7 +116,9 @@ export const computeOldRegimeDeductions = (deductions = {}, age = 30) => {
       homeLoanInterest: dHLP,
       hra,
       lta,
-      sec80G,
+      sec80G_cash:      d80G_cash,
+      sec80G_cheque:    sec80G_cheque + sec80G,
+      sec80G:           d80G,
       otherDeductions,
       standardDeduction: DEDUCTION_LIMITS.STANDARD_DED_OLD,
     },

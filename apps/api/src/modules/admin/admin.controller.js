@@ -38,3 +38,14 @@ export const toggleUserActive = async (req, res, next) => {
     return response.success(res, user, `User ${isActive ? "activated" : "deactivated"}`);
   } catch (err) { next(err); }
 };
+
+export const getAuditLogs = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const result = await adminService.getAuditLogs({
+      page:  parseInt(page),
+      limit: parseInt(limit),
+    });
+    return response.success(res, result, "Audit logs fetched");
+  } catch (err) { next(err); }
+};

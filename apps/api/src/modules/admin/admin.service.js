@@ -1,6 +1,7 @@
-import User    from "../auth/auth.model.js";
-import Filing  from "../itr/filing.model.js";
-import Document from "../documents/documents.model.js";
+import User      from "../auth/auth.model.js";
+import Filing    from "../itr/filing.model.js";
+import Document  from "../documents/documents.model.js";
+import AuditLog  from "./audit.model.js";
 
 export const getDashboardStats = async () => {
   const [totalUsers, totalFilings, submittedFilings, totalDocs] = await Promise.all([
@@ -64,12 +65,22 @@ export const updateUserRole = async (userId, role, adminId) => {
   if (userId === adminId.toString()) {
     throw Object.assign(new Error("Cannot change your own role"), { status: 400 });
   }
+  const before = await User.findById(userId).select("role").lean();
   const user = await User.findByIdAndUpdate(
     userId,
     { $set: { role } },
     { new: true }
   ).select("-passwordHash -aadhaarEncrypted");
   if (!user) throw Object.assign(new Error("User not found"), { status: 404 });
+
+  await AuditLog.create({
+    adminId,
+    action:   "ROLE_CHANGE",
+    targetId: userId,
+    before:   { role: before?.role },
+    after:    { role },
+  });
+
   return user;
 };
 
@@ -83,5 +94,27 @@ export const toggleUserActive = async (userId, isActive, adminId) => {
     { new: true }
   ).select("-passwordHash -aadhaarEncrypted");
   if (!user) throw Object.assign(new Error("User not found"), { status: 404 });
+
+  await AuditLog.create({
+    adminId,
+    action:   isActive ? "USER_ACTIVATED" : "USER_DEACTIVATED",
+    targetId: userId,
+    before:   { isActive: !isActive },
+    after:    { isActive },
+  });
+
   return user;
+};
+
+export const getAuditLogs = async ({ page = 1, limit = 50 }) => {
+  const [logs, total] = await Promise.all([
+    AuditLog.find()
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate("adminId", "fullName pan email")
+      .lean(),
+    AuditLog.countDocuments(),
+  ]);
+  return { logs, total, page, limit };
 };

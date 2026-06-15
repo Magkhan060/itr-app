@@ -10,5 +10,6 @@ router.get("/stats",                adminController.getDashboardStats);
 router.get("/users",                adminController.getAllUsers);
 router.patch("/users/:id/role",     adminController.updateUserRole);
 router.patch("/users/:id/active",   adminController.toggleUserActive);
+router.get("/audit",                adminController.getAuditLogs);
 
 export default router;
