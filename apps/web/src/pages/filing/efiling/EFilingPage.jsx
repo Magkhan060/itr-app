@@ -349,9 +349,9 @@ export default function EFilingPage() {
 
   const handleDownloadXML = async () => {
     try {
-      const res = await downloadXML(filing._id);
-      const url = URL.createObjectURL(new Blob([res.data], { type: "application/xml" }));
-      const a   = document.createElement("a");
+      const blob = await downloadXML(filing._id);
+      const url  = URL.createObjectURL(new Blob([blob], { type: "application/xml" }));
+      const a    = document.createElement("a");
       a.href     = url;
       a.download = `ITR1_${filing._id}.xml`;
       a.click();
@@ -458,8 +458,8 @@ export default function EFilingPage() {
           <Button
             key="xml"
             icon={<DownloadOutlined />}
-            onClick={() => downloadXML(filing._id).then((res) => {
-              const url = URL.createObjectURL(new Blob([res.data], { type: "application/xml" }));
+            onClick={() => downloadXML(filing._id).then((blob) => {
+              const url = URL.createObjectURL(new Blob([blob], { type: "application/xml" }));
               const a   = document.createElement("a");
               a.href     = url;
               a.download = `ITR1_${filing._id}.xml`;
@@ -512,8 +512,8 @@ export default function EFilingPage() {
           <Button
             key="xml"
             icon={<DownloadOutlined />}
-            onClick={() => downloadXML(filing._id).then((res) => {
-              const url = URL.createObjectURL(new Blob([res.data], { type: "application/xml" }));
+            onClick={() => downloadXML(filing._id).then((blob) => {
+              const url = URL.createObjectURL(new Blob([blob], { type: "application/xml" }));
               const a   = document.createElement("a");
               a.href     = url;
               a.download = `ITR1_${filing._id}.xml`;

@@ -8,13 +8,14 @@ import {
 import {
   UserOutlined, BankOutlined, FileTextOutlined,
   CheckCircleOutlined, ArrowLeftOutlined, ArrowRightOutlined,
-  FilePdfOutlined, PaperClipOutlined,
+  FilePdfOutlined, PaperClipOutlined, DownloadOutlined,
+  SafetyCertificateOutlined, GlobalOutlined,
 } from "@ant-design/icons";
 import { useAuthStore } from "../../../store/index.js";
 import { useFilingStore } from "../../../store/index.js";
 import { compareRegimes } from "../../../services/tax.service.js";
 import { DEDUCTION_LIMITS, METRO_CITIES } from "@itr-app/shared-types";
-import { saveDraft, submitITR1 } from "../../../services/filing.service.js";
+import { saveDraft, submitITR1, downloadFilingXML } from "../../../services/filing.service.js";
 import { getMyDocuments } from "../../../services/document.service.js";
 import { useNavigate } from "react-router-dom";
 
@@ -51,6 +52,10 @@ export default function ITR1Filing() {
   const [form16Doc, setForm16Doc]     = useState(null);
   const [docsLoading, setDocsLoading] = useState(false);
 
+  // ── XML download state ────────────────────────────────────────
+  const [xmlLoading, setXmlLoading]   = useState(false);
+  const [xmlError,   setXmlError]     = useState(null);
+
   useEffect(() => {
     setDocsLoading(true);
     getMyDocuments()
@@ -77,8 +82,9 @@ export default function ITR1Filing() {
   // preserved (unmounted) fields from other steps are not re-validated.
   const STEP_FIELDS = [
     ["fullName", "pan", "dateOfBirth", "gender", "residentialStatus",
+     "fatherName", "aadhaar", "mobile", "addressLine1", "pinCode",
      "city", "employerName", "employerTAN", "bankAccountNo", "ifscCode"],
-    ["grossSalary", "hra_received", "tdsDeducted", "interestIncome", "otherIncome"],
+    ["grossSalary", "hra_received", "professionalTax", "tdsDeducted", "interestIncome", "otherIncome"],
     ["sec80C", "sec80CCD1B", "sec80D_self", "sec80D_parents",
      "homeLoanInterest", "hra_exempt", "lta", "sec80TTA_TTB", "sec80G"],
   ];
@@ -264,6 +270,45 @@ export default function ITR1Filing() {
             </Select>
           </Form.Item>
         </Col>
+        <Col xs={24} sm={12}>
+          <Form.Item name="fatherName" label="Father's Name"
+            tooltip="As per PAN records. Required for ITR verification declaration."
+          >
+            <Input prefix={<UserOutlined />} placeholder="FATHER'S FULL NAME" />
+          </Form.Item>
+        </Col>
+        <Col xs={24} sm={12}>
+          <Form.Item name="aadhaar" label="Aadhaar Number"
+            tooltip="12-digit Aadhaar linked to your PAN. Required for EVC (one-click e-verification). Not on Form 16 — check your Aadhaar card."
+            rules={[{ pattern: /^\d{12}$/, message: "Aadhaar must be 12 digits" }]}
+          >
+            <Input placeholder="1234 5678 9012" maxLength={12} />
+          </Form.Item>
+        </Col>
+        <Col xs={24} sm={12}>
+          <Form.Item name="mobile" label="Mobile (Aadhaar-linked)"
+            tooltip="Your mobile number registered with Aadhaar. ITD sends EVC OTP to this number. Not on Form 16."
+            rules={[{ pattern: /^[6-9]\d{9}$/, message: "Enter valid 10-digit mobile" }]}
+          >
+            <Input addonBefore="+91" placeholder="9876543210" maxLength={10} />
+          </Form.Item>
+        </Col>
+        <Col xs={24}>
+          <Form.Item name="addressLine1" label="Address (Street / Flat / Colony)"
+            tooltip="Your current residential address. Required for ITR filing."
+          >
+            <Input placeholder="19-4-438/A/10, Street 3, BNK Colony" />
+          </Form.Item>
+        </Col>
+        <Col xs={24} sm={12}>
+          <Form.Item name="pinCode" label="PIN Code"
+            tooltip="6-digit postal PIN code of your residential area."
+            rules={[{ pattern: /^\d{6}$/, message: "PIN must be 6 digits" }]}
+          >
+            <Input placeholder="500064" maxLength={6} />
+          </Form.Item>
+        </Col>
+        <Col xs={24} sm={12} />
         <Col xs={24}>
           <Form.Item name="employerName" label="Employer Name"
             tooltip="Form 16 → top section: 'Name and address of the Employer / Specified Bank'. Copy the company name exactly."
@@ -323,6 +368,12 @@ export default function ITR1Filing() {
       label:    "HRA Received (₹)",
       required: false,
       tip:      "Form 16 → Annexure (last pages): look for 'House Rent Allowance'. This is the total HRA your employer paid you during the year — needed to compute your HRA exemption in the next step. Enter 0 if your employer does not pay HRA.",
+    },
+    {
+      name:     "professionalTax",
+      label:    "Professional Tax u/s 16(iii) (₹)",
+      required: false,
+      tip:      "Form 16 → Part B: 'Tax on employment u/s 16(iii)'. This is the professional tax (Profession Tax) deducted from your salary by your employer and paid to the state government. Usually ₹200/month = ₹2,400/year. Enter 0 if not applicable.",
     },
     {
       name:     "tdsDeducted",
@@ -571,34 +622,120 @@ export default function ITR1Filing() {
   ];
 
   // ── Submission success screen ────────────────────────────────
+  const handleDownloadXML = async () => {
+    setXmlLoading(true);
+    setXmlError(null);
+    try {
+      const blob = await downloadFilingXML(submitted.filing._id);
+      const url  = URL.createObjectURL(new Blob([blob], { type: "application/xml" }));
+      const a   = document.createElement("a");
+      a.href     = url;
+      a.download = `ITR1_AY2026-27_${submitted.acknowledgementNo}.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setXmlError("Could not generate XML. Please try again.");
+    } finally {
+      setXmlLoading(false);
+    }
+  };
+
   if (submitted) {
     return (
-      <Result
-        status="success"
-        title="ITR-1 Filed Successfully!"
-        subTitle={
-          <div>
-            <p>Acknowledgement No: <strong>{submitted.acknowledgementNo}</strong></p>
-            <p>Assessment Year: <strong>AY 2026-27</strong></p>
-            <p>Total Tax Payable:{" "}
-              <strong style={{ color: "#1677ff" }}>
-                {fmt(submitted.taxSummary?.totalTax)}
-              </strong>
-            </p>
-            <p style={{ marginTop: 8, color: "#8c8c8c", fontSize: 12 }}>
-              Please save your acknowledgement number for future reference.
-            </p>
+      <div>
+        <Result
+          status="success"
+          icon={<CheckCircleOutlined style={{ color: "#52c41a" }} />}
+          title="ITR-1 Prepared Successfully!"
+          subTitle={
+            <div>
+              <p>App Acknowledgement: <Text code strong>{submitted.acknowledgementNo}</Text></p>
+              <p>Assessment Year: <strong>AY 2026-27</strong></p>
+              <p>
+                Total Tax:{" "}
+                <strong style={{ color: "#fa541c" }}>{fmt(submitted.taxSummary?.totalTax)}</strong>
+                {submitted.taxSummary?.refundDue > 0 && (
+                  <span style={{ marginLeft: 12, color: "#52c41a" }}>
+                    · Refund: {fmt(submitted.taxSummary?.refundDue)}
+                  </span>
+                )}
+              </p>
+            </div>
+          }
+          extra={[
+            <Button
+              type="primary"
+              key="xml"
+              icon={<DownloadOutlined />}
+              loading={xmlLoading}
+              onClick={handleDownloadXML}
+            >
+              Download ITR XML
+            </Button>,
+            <Button
+              key="efiling"
+              icon={<SafetyCertificateOutlined />}
+              onClick={() => navigate("/efiling")}
+            >
+              e-File via Platform
+            </Button>,
+            <Button key="dashboard" onClick={() => navigate("/dashboard")}>
+              Go to Dashboard
+            </Button>,
+          ]}
+        />
+
+        {xmlError && (
+          <Alert type="error" message={xmlError} showIcon style={{ marginBottom: 16, borderRadius: 8 }} />
+        )}
+
+        {/* Step-by-step guide for manual upload */}
+        <Card
+          style={{ maxWidth: 680, margin: "0 auto", borderRadius: 10 }}
+          variant="borderless"
+        >
+          <Alert
+            type="info"
+            showIcon
+            icon={<GlobalOutlined />}
+            message={<strong>How to file on the Income Tax Portal (incometax.gov.in)</strong>}
+            description={
+              <ol style={{ paddingLeft: 20, margin: "8px 0 0", lineHeight: 2 }}>
+                <li>Click <strong>Download ITR XML</strong> above to save your pre-filled return</li>
+                <li>
+                  Go to{" "}
+                  <a href="https://www.incometax.gov.in/iec/foportal/" target="_blank" rel="noreferrer">
+                    incometax.gov.in
+                  </a>{" "}
+                  and log in with your PAN and password
+                </li>
+                <li>Navigate to <strong>e-File → Income Tax Returns → File Income Tax Return</strong></li>
+                <li>Select <strong>AY 2026-27</strong>, then <strong>ITR-1</strong>, then <strong>Upload ITR</strong></li>
+                <li>Choose <strong>Upload XML</strong> and select the downloaded file</li>
+                <li>Verify using <strong>Aadhaar OTP</strong> or <strong>Net Banking EVC</strong> to complete filing</li>
+                <li>Save the <strong>ITR-V Acknowledgement</strong> sent to your registered email</li>
+              </ol>
+            }
+            style={{ borderRadius: 8 }}
+          />
+
+          <Divider />
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Or use our integrated e-filing to submit directly without leaving the app
+            </Text>
+            <Button
+              type="link"
+              icon={<SafetyCertificateOutlined />}
+              onClick={() => navigate("/efiling")}
+              style={{ padding: 0 }}
+            >
+              e-File via Platform →
+            </Button>
           </div>
-        }
-        extra={[
-          <Button type="primary" key="dashboard" onClick={() => navigate("/dashboard")}>
-            Go to Dashboard
-          </Button>,
-          <Button key="download" disabled>
-            Download ITR-V (Coming Soon)
-          </Button>,
-        ]}
-      />
+        </Card>
+      </div>
     );
   }
 

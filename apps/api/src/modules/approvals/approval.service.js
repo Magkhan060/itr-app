@@ -79,7 +79,25 @@ export const getApprovalSummary = async (token) => {
     client: { fullName: client?.fullName, pan: client?.pan },
     ca:     { fullName: ca?.fullName, firmName: ca?.caFirmName },
     summary: {
+      // Employer
+      employerName:   d.employerName   || "",
+      employerTAN:    d.employerTAN    || "",
+      // Salary income
       grossSalary:    d.grossSalary    || 0,
+      hraReceived:    d.hra_received   || 0,
+      hraExempt:      d.hra_exempt     || 0,
+      standardDeduction: d.selectedRegime === "new" ? 75000 : 50000,
+      professionalTax: d.professionalTax || 0,
+      // Other income
+      interestIncome: d.interestIncome || 0,
+      otherIncome:    d.otherIncome    || 0,
+      // Deductions (Chapter VI-A) — only under old regime
+      sec80C:         d.sec80C         || 0,
+      sec80CCD1B:     d.sec80CCD1B     || 0,
+      sec80D:         (d.sec80D_self || 0) + (d.sec80D_parents || 0),
+      sec80TTA:       d.sec80TTA_TTB   || 0,
+      sec80G:         d.sec80G         || 0,
+      // Tax
       tdsDeducted:    d.tdsDeducted    || 0,
       selectedRegime: d.selectedRegime || "new",
       taxableIncome:  tax.taxableIncome || 0,
@@ -87,6 +105,9 @@ export const getApprovalSummary = async (token) => {
       effectiveRate:  tax.effectiveRate || 0,
       refundDue:      Math.max(0, (d.tdsDeducted || 0) - (tax.totalTax || 0)),
       balPayable:     Math.max(0, (tax.totalTax || 0) - (d.tdsDeducted || 0)),
+      // Bank (last 4 digits only for security)
+      bankLast4:      d.bankAccountNo ? String(d.bankAccountNo).slice(-4) : "",
+      bankIFSC:       d.ifscCode || "",
     },
   };
 };

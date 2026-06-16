@@ -29,7 +29,8 @@ export default function RefundTracker() {
   useEffect(() => {
     getMyFilings()
       .then((res) => {
-        const submitted = (res.data || []).filter((f) => f.status !== "draft");
+        const all = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
+        const submitted = all.filter((f) => f.status !== "draft");
         setFilings(submitted);
         if (submitted.length > 0) setSelected(submitted[0]._id);
       })

@@ -90,6 +90,7 @@ export default function App() {
           <Route path="efiling"           element={<EFilingPage />} />
           {/* CA Portal routes */}
           <Route path="ca/dashboard"                        element={<CADashboard />} />
+          <Route path="ca/clients"                          element={<Navigate to="/ca/dashboard" replace />} />
           <Route path="ca/clients/new"                      element={<AddEditClient />} />
           <Route path="ca/clients/:clientId"                element={<ClientWorkspace />} />
           <Route path="ca/clients/:clientId/edit"           element={<AddEditClient />} />

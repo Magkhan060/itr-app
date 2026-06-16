@@ -12,6 +12,7 @@ const router = Router();
 router.use(protect);
 
 router.get("/",           filingController.getMyFilings);
+router.get("/:id/xml",    requireFeature("ITR_1"), filingController.downloadFilingXML);
 router.get("/:id",        filingController.getFilingById);
 router.post("/draft",     requireFeature("ITR_1"), filingController.saveDraft);
 router.post("/itr1",      requireFeature("ITR_1"), filingController.submitITR1);

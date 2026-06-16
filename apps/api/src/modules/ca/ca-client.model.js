@@ -15,8 +15,12 @@ const caClientSchema = new mongoose.Schema(
     mobile:      { type: String, trim: true },
     dateOfBirth: { type: Date },
     gender:      { type: String, enum: ["M", "F", "T"] },
-    // Address / employer — used to pre-fill ITR form
+    fatherName:  { type: String, trim: true },
+    aadhaar:     { type: String },            // stored plain — encrypted at filing level
+    // Address — used to pre-fill ITR form
+    addressLine1:{ type: String, trim: true },
     city:        { type: String, trim: true },
+    pinCode:     { type: String, trim: true },
     employerName:{ type: String, trim: true },
     employerTAN: { type: String, uppercase: true, trim: true },
     bankAccountNo:   { type: String },  // stored plain; encrypted at filing level

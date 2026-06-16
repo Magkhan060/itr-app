@@ -121,6 +121,24 @@ export default function AddEditClient() {
                 </Select>
               </Form.Item>
             </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="fatherName" label="Father's Name">
+                <Input prefix={<UserOutlined />} placeholder="FATHER'S FULL NAME" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="aadhaar"
+                label="Aadhaar Number"
+                rules={[{ pattern: /^\d{12}$/, message: "Aadhaar must be 12 digits" }]}
+              >
+                <Input
+                  prefix={<IdcardOutlined />}
+                  placeholder="1234 5678 9012"
+                  maxLength={12}
+                />
+              </Form.Item>
+            </Col>
           </Row>
 
           <Title level={5} style={{ marginTop: 8 }}>Contact</Title>
@@ -137,6 +155,32 @@ export default function AddEditClient() {
                 rules={[{ pattern: /^[6-9]\d{9}$/, message: "Invalid Indian mobile" }]}
               >
                 <Input prefix={<PhoneOutlined />} addonBefore="+91" placeholder="9876543210" maxLength={10} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Title level={5} style={{ marginTop: 8 }}>Address</Title>
+          <Row gutter={16}>
+            <Col xs={24}>
+              <Form.Item name="addressLine1" label="Street / Flat / Colony">
+                <Input placeholder="19-4-438/A/10, Street 3, BNK Colony" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="city" label="City">
+                <Select placeholder="Select city" showSearch>
+                  {[...METRO_CITIES, "Bengaluru", "Hyderabad", "Pune", "Ahmedabad", "Other"]
+                    .map((c) => <Option key={c} value={c}>{c}{METRO_CITIES.includes(c) ? " 🏙" : ""}</Option>)}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="pinCode"
+                label="PIN Code"
+                rules={[{ pattern: /^\d{6}$/, message: "PIN must be 6 digits" }]}
+              >
+                <Input placeholder="500064" maxLength={6} />
               </Form.Item>
             </Col>
           </Row>
@@ -159,14 +203,6 @@ export default function AddEditClient() {
                   maxLength={10}
                   onChange={(e) => form.setFieldValue("employerTAN", e.target.value.toUpperCase())}
                 />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item name="city" label="City of Employment">
-                <Select placeholder="Select city" showSearch>
-                  {[...METRO_CITIES, "Bengaluru", "Hyderabad", "Pune", "Ahmedabad", "Other"]
-                    .map((c) => <Option key={c} value={c}>{c}{METRO_CITIES.includes(c) ? " 🏙" : ""}</Option>)}
-                </Select>
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>

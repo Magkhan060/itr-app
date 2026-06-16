@@ -66,12 +66,16 @@ export const submitToITD = async (userId, filingId, evc, evcMethod) => {
     throw Object.assign(new Error("This return has already been e-filed"), { status: 409 });
   }
 
-  // Decrypt bank account before generating XML
+  // Decrypt PII before generating XML
   const raw      = filing.toObject();
   const itr1Data = { ...raw.itr1Data };
   if (itr1Data.bankAccountEncrypted) {
     itr1Data.bankAccountNo = decrypt(itr1Data.bankAccountEncrypted);
     delete itr1Data.bankAccountEncrypted;
+  }
+  if (itr1Data.aadhaarEncrypted) {
+    itr1Data.aadhaar = decrypt(itr1Data.aadhaarEncrypted);
+    delete itr1Data.aadhaarEncrypted;
   }
   const xmlFiling = { ...raw, itr1Data };
 
@@ -115,6 +119,10 @@ export const getITRXML = async (userId, filingId) => {
   if (itr1Data.bankAccountEncrypted) {
     itr1Data.bankAccountNo = decrypt(itr1Data.bankAccountEncrypted);
     delete itr1Data.bankAccountEncrypted;
+  }
+  if (itr1Data.aadhaarEncrypted) {
+    itr1Data.aadhaar = decrypt(itr1Data.aadhaarEncrypted);
+    delete itr1Data.aadhaarEncrypted;
   }
 
   return generateITR1XML({ ...raw, itr1Data });

@@ -27,25 +27,27 @@ export const generateITR1XML = (filing) => {
   const newFlag   = isNew ? "Y" : "N";
 
   // Income figures
+  // Budget 2025: standard deduction under new regime is ₹75,000 (vs ₹50,000 old regime)
+  // HRA exemption u/s 10(13A) is NOT available under new regime
   const grossSalary    = num(d.grossSalary);
-  const stdDeduction   = Math.min(50000, grossSalary);
-  const hraExempt      = num(d.hra_exempt);
+  const stdDeduction   = isNew ? Math.min(75000, grossSalary) : Math.min(50000, grossSalary);
+  const hraExempt      = isNew ? 0 : num(d.hra_exempt);
   const profTax        = num(d.professionalTax || 0);
   const deductionUs16  = stdDeduction + hraExempt + profTax;
   const netSalary      = Math.max(0, grossSalary - deductionUs16);
-  const homeLoanInt    = num(d.homeLoanInterest);
+  const homeLoanInt    = isNew ? 0 : num(d.homeLoanInterest);  // 24(b) home loan not available under new regime
   const interestIncome = num(d.interestIncome);
   const otherIncome    = num(d.otherIncome);
   const grossTotal     = netSalary - homeLoanInt + interestIncome + otherIncome;
 
-  // Deductions (Chapter VI-A)
-  const sec80C      = Math.min(num(d.sec80C), 150000);
-  const sec80CCD1B  = Math.min(num(d.sec80CCD1B), 50000);
-  const sec80D      = Math.min(num(d.sec80D_self) + num(d.sec80D_parents), 75000);
-  const sec80TTA    = Math.min(num(d.sec80TTA_TTB), 10000);
-  const sec80G      = num(d.sec80G);
-  const lta         = num(d.lta);
-  const totalDeductions = isNew ? 0 : sec80C + sec80CCD1B + sec80D + sec80TTA + sec80G + lta;
+  // Deductions (Chapter VI-A) — all zero under new regime
+  const sec80C      = isNew ? 0 : Math.min(num(d.sec80C), 150000);
+  const sec80CCD1B  = isNew ? 0 : Math.min(num(d.sec80CCD1B), 50000);
+  const sec80D      = isNew ? 0 : Math.min(num(d.sec80D_self) + num(d.sec80D_parents), 75000);
+  const sec80TTA    = isNew ? 0 : Math.min(num(d.sec80TTA_TTB), 10000);
+  const sec80G      = isNew ? 0 : num(d.sec80G);
+  const lta         = isNew ? 0 : num(d.lta);
+  const totalDeductions = sec80C + sec80CCD1B + sec80D + sec80TTA + sec80G + lta;
 
   const taxableIncome  = Math.max(0, grossTotal - totalDeductions);
   const totalTax       = num(tax.totalTax || 0);
@@ -77,16 +79,16 @@ export const generateITR1XML = (filing) => {
         <PAN>${esc(d.pan)}</PAN>
         <DOB>${d.dateOfBirth ? new Date(d.dateOfBirth).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }) : ""}</DOB>
         <EmployerCategory>OTHERS</EmployerCategory>
-        <AadhaarCardNo></AadhaarCardNo>
-        <MobileNo></MobileNo>
+        <AadhaarCardNo>${esc(d.aadhaar || "")}</AadhaarCardNo>
+        <MobileNo>${esc(d.mobile || "")}</MobileNo>
         <EmailAddress></EmailAddress>
       </PersonalInfo>
       <Address>
-        <ResidenceNo></ResidenceNo>
+        <ResidenceNo>${esc(d.addressLine1 || "")}</ResidenceNo>
         <LocalityOrArea></LocalityOrArea>
         <CityOrTownOrDistrict>${esc(d.city)}</CityOrTownOrDistrict>
         <CountryCode>91</CountryCode>
-        <PinCode></PinCode>
+        <PinCode>${esc(d.pinCode || "")}</PinCode>
       </Address>
       <FilingStatus>
         <ReturnFileSec>11</ReturnFileSec>
@@ -167,7 +169,7 @@ export const generateITR1XML = (filing) => {
         <Declaration>
           <AssesseeVerName>${esc(d.fullName)}</AssesseeVerName>
           <AssesseeVerPAN>${esc(d.pan)}</AssesseeVerPAN>
-          <FatherName></FatherName>
+          <FatherName>${esc(d.fatherName || "")}</FatherName>
           <Designation>SELF</Designation>
         </Declaration>
         <Capacity>S</Capacity>

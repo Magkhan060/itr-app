@@ -4,24 +4,40 @@ import { CURRENT_AY } from "@itr-app/shared-types";
 import { encrypt, decrypt } from "../../utils/encryption.js";
 import crypto from "crypto";
 
-// ── Encryption helpers for the itr1Data bank account field ────────────────
+// ── Encryption helpers for PII fields (bank account + Aadhaar) ────────────
 
-const encryptBankAccount = (itr1Data) => {
-  if (!itr1Data?.bankAccountNo) return itr1Data;
-  const { bankAccountNo, ...rest } = itr1Data;
-  return { ...rest, bankAccountEncrypted: encrypt(bankAccountNo) };
+const encryptPII = (itr1Data) => {
+  if (!itr1Data) return itr1Data;
+  const result = { ...itr1Data };
+  if (result.bankAccountNo) {
+    result.bankAccountEncrypted = encrypt(result.bankAccountNo);
+    delete result.bankAccountNo;
+  }
+  if (result.aadhaar) {
+    result.aadhaarEncrypted = encrypt(result.aadhaar);
+    delete result.aadhaar;
+  }
+  return result;
 };
 
-const decryptBankAccount = (itr1Data) => {
-  if (!itr1Data?.bankAccountEncrypted) return itr1Data;
-  const { bankAccountEncrypted, ...rest } = itr1Data;
-  return { ...rest, bankAccountNo: decrypt(bankAccountEncrypted) };
+const decryptPII = (itr1Data) => {
+  if (!itr1Data) return itr1Data;
+  const result = { ...itr1Data };
+  if (result.bankAccountEncrypted) {
+    result.bankAccountNo = decrypt(result.bankAccountEncrypted);
+    delete result.bankAccountEncrypted;
+  }
+  if (result.aadhaarEncrypted) {
+    result.aadhaar = decrypt(result.aadhaarEncrypted);
+    delete result.aadhaarEncrypted;
+  }
+  return result;
 };
 
-const withDecryptedBank = (filing) => {
+const withDecryptedPII = (filing) => {
   if (!filing) return filing;
   const plain = filing.toObject ? filing.toObject() : filing;
-  return { ...plain, itr1Data: decryptBankAccount(plain.itr1Data) };
+  return { ...plain, itr1Data: decryptPII(plain.itr1Data) };
 };
 
 // ── Service functions ──────────────────────────────────────────────────────
@@ -32,7 +48,7 @@ export const saveDraft = async (userId, { itrType, assessmentYear, step, data })
   const update = {
     $set: {
       status:   "draft",
-      itr1Data: encryptBankAccount(data),
+      itr1Data: encryptPII(data),
     },
   };
 
@@ -42,7 +58,7 @@ export const saveDraft = async (userId, { itrType, assessmentYear, step, data })
     setDefaultsOnInsert: true,
   });
 
-  return withDecryptedBank(filing);
+  return withDecryptedPII(filing);
 };
 
 export const submitITR1 = async (userId, { personalInfo, incomeDetails, deductions, selectedRegime }) => {
@@ -83,7 +99,7 @@ export const submitITR1 = async (userId, { personalInfo, incomeDetails, deductio
     {
       $set: {
         status:            "submitted",
-        itr1Data:          encryptBankAccount(rawItr1Data),
+        itr1Data:          encryptPII(rawItr1Data),
         submittedAt:       new Date(),
         acknowledgementNo: ackNo,
       },
@@ -92,7 +108,7 @@ export const submitITR1 = async (userId, { personalInfo, incomeDetails, deductio
   );
 
   return {
-    filing:            withDecryptedBank(filing),
+    filing:            withDecryptedPII(filing),
     acknowledgementNo: ackNo,
     taxSummary:        selectedTax,
   };
@@ -100,13 +116,13 @@ export const submitITR1 = async (userId, { personalInfo, incomeDetails, deductio
 
 export const getMyFilings = async (userId) => {
   const filings = await Filing.find({ userId }).sort({ createdAt: -1 }).lean();
-  return filings.map((f) => ({ ...f, itr1Data: decryptBankAccount(f.itr1Data) }));
+  return filings.map((f) => ({ ...f, itr1Data: decryptPII(f.itr1Data) }));
 };
 
 export const getFilingById = async (userId, filingId) => {
   const filing = await Filing.findOne({ _id: filingId, userId });
   if (!filing) throw Object.assign(new Error("Filing not found"), { status: 404 });
-  return withDecryptedBank(filing);
+  return withDecryptedPII(filing);
 };
 
 // ── CA Portal service functions ───────────────────────────────────────────────
@@ -115,10 +131,10 @@ export const saveDraftForClient = async (caId, clientId, { itrType, assessmentYe
   const filter = { userId: caId, caClientId: clientId, itrType, assessmentYear };
   const filing = await Filing.findOneAndUpdate(
     filter,
-    { $set: { status: "draft", itr1Data: encryptBankAccount(data), preparedByCa: caId, caClientId: clientId } },
+    { $set: { status: "draft", itr1Data: encryptPII(data), preparedByCa: caId, caClientId: clientId } },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
-  return withDecryptedBank(filing);
+  return withDecryptedPII(filing);
 };
 
 export const submitITR1ForClient = async (caId, clientId, { personalInfo, incomeDetails, deductions, selectedRegime }) => {
@@ -140,7 +156,7 @@ export const submitITR1ForClient = async (caId, clientId, { personalInfo, income
     {
       $set: {
         status:            "submitted",
-        itr1Data:          encryptBankAccount(rawItr1Data),
+        itr1Data:          encryptPII(rawItr1Data),
         submittedAt:       new Date(),
         acknowledgementNo: ackNo,
         preparedByCa:      caId,
@@ -151,10 +167,10 @@ export const submitITR1ForClient = async (caId, clientId, { personalInfo, income
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
 
-  return { filing: withDecryptedBank(filing), acknowledgementNo: ackNo, taxSummary: selectedTax };
+  return { filing: withDecryptedPII(filing), acknowledgementNo: ackNo, taxSummary: selectedTax };
 };
 
 export const getClientFilings = async (caId, clientId) => {
   const filings = await Filing.find({ userId: caId, caClientId: clientId }).sort({ createdAt: -1 }).lean();
-  return filings.map((f) => ({ ...f, itr1Data: decryptBankAccount(f.itr1Data) }));
+  return filings.map((f) => ({ ...f, itr1Data: decryptPII(f.itr1Data) }));
 };

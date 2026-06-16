@@ -9,20 +9,29 @@ const tdsEntrySchema = new mongoose.Schema({
 
 const itr1DataSchema = new mongoose.Schema({
   // Personal
-  fullName:           { type: String, required: true },
-  pan:                { type: String, required: true },
-  dateOfBirth:        { type: Date   },
-  gender:             { type: String, enum: ["M","F","T"] },
-  residentialStatus:  { type: String, default: "ROR" },
-  city:               { type: String },
-  employerName:       { type: String },
-  employerTAN:        { type: String },
+  fullName:             { type: String, required: true },
+  pan:                  { type: String, required: true },
+  dateOfBirth:          { type: Date   },
+  gender:               { type: String, enum: ["M","F","T"] },
+  residentialStatus:    { type: String, default: "ROR" },
+  fatherName:           { type: String },
+  // Address
+  addressLine1:         { type: String },
+  city:                 { type: String },
+  pinCode:              { type: String },
+  // Contact (linked to Aadhaar for EVC)
+  mobile:               { type: String },
+  aadhaarEncrypted:     { type: String },   // AES-256-CBC encrypted
+  // Employer & banking
+  employerName:         { type: String },
+  employerTAN:          { type: String },
   bankAccountEncrypted: { type: String },   // AES-256-CBC encrypted
   ifscCode:             { type: String },
 
   // Income
   grossSalary:        { type: Number, default: 0 },
   hra_received:       { type: Number, default: 0 },
+  professionalTax:    { type: Number, default: 0 },
   tdsDeducted:        { type: Number, default: 0 },
   interestIncome:     { type: Number, default: 0 },
   otherIncome:        { type: Number, default: 0 },
