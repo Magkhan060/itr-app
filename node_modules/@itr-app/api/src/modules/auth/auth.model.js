@@ -50,18 +50,24 @@ const userSchema = new mongoose.Schema(
     },    
     role: {
       type:    String,
-      enum:    ["user", "ca", "admin"],
-      default: "user",
+      // ca_staff / ca_readonly / platform_support are reserved for Phase 2 — not yet assignable.
+      enum:    ["taxpayer", "ca_admin", "ca_staff", "ca_readonly", "platform_admin", "platform_support"],
+      default: "taxpayer",
     },
-    // CA-specific profile fields
-    caFirmName:  { type: String, trim: true },
-    caMemberNo:  { type: String, trim: true },  // ICAI membership number
+    // Set for ca_admin / ca_staff / ca_readonly — links the user to their CA practice.
+    // Firm-level details (name, ICAI number, ITD credentials) live on the CAFirm document.
+    caFirmId: {
+      type:    mongoose.Schema.Types.ObjectId,
+      ref:     "CAFirm",
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
-// Never expose sensitive fields in JSON responses
-userSchema.methods.toSafeObject = function () {
+// Never expose sensitive fields in JSON responses.
+// Pass the CAFirm document (if loaded by the caller) to include firm display fields.
+userSchema.methods.toSafeObject = function (firm = null) {
   return {
     id:          this._id,
     pan:         this.pan,
@@ -72,8 +78,9 @@ userSchema.methods.toSafeObject = function () {
     createdAt:   this.createdAt,
     role:        this.role,
     isActive:    this.isActive,
-    caFirmName:  this.caFirmName,
-    caMemberNo:  this.caMemberNo,
+    caFirmId:    this.caFirmId || null,
+    caFirmName:  firm?.firmName     || null,
+    caMemberNo:  firm?.icaiMemberNo || null,
   };
 };
 

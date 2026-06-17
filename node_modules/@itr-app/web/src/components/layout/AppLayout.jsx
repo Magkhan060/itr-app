@@ -3,10 +3,9 @@ import {
   Layout, Menu, Avatar, Dropdown, Typography, Tag, Button, Breadcrumb,
 } from "antd";
 import {
-  DashboardOutlined, FileTextOutlined, CalculatorOutlined,
-  UserOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
-  FileDoneOutlined, CalendarOutlined, BankOutlined, SettingOutlined,
-  BellOutlined, CrownOutlined, TeamOutlined, AuditOutlined,
+  DashboardOutlined, UserOutlined, LogoutOutlined,
+  MenuFoldOutlined, MenuUnfoldOutlined, FileDoneOutlined,
+  BellOutlined, CrownOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet, Link } from "react-router-dom";
 import { useAuthStore, useFlagsStore } from "../../store/index.js";
@@ -15,48 +14,33 @@ import { FLAGS } from "../../config/features.config.js";
 const { Header, Sider, Content, Footer } = Layout;
 const { Text } = Typography;
 
+const ROLE_LABEL = {
+  platform_admin: "Admin",
+  ca_admin:       "CA Admin",
+  ca_staff:       "CA Team Member",
+  ca_readonly:    "CA (Read-Only)",
+  taxpayer:       "Taxpayer",
+};
+
+// Left nav is intentionally minimal — Dashboard renders role-specific content
+// (taxpayer / CA Portal / Admin Panel), so there's nothing else that needs a
+// permanent slot here. Tax Calculator, Advance Tax, Refund Tracker, and the
+// ITR-1..7 filing pages are all still real routes — reachable via tiles/links
+// on the Dashboard itself, just not pinned to the sidebar.
 const NAV_ITEMS = [
-  { key: "/dashboard",     icon: <DashboardOutlined />, label: "Dashboard",      flag: null },
-  {
-    key: "/filing",
-    icon: <FileTextOutlined />,
-    label: "File Return",
-    flag: null,
-    children: [
-      { key: "/filing/itr1", label: "ITR-1 (Salaried)",    flag: "ITR_1" },
-      { key: "/filing/itr2", label: "ITR-2 (Capital Gains)", flag: "ITR_2" },
-      { key: "/filing/itr3", label: "ITR-3 (Business)",    flag: "ITR_3" },
-      { key: "/filing/itr4", label: "ITR-4 (Presumptive)", flag: "ITR_4" },
-      { key: "/filing/itr5", label: "ITR-5 (Firms/LLP)",   flag: "ITR_5" },
-      { key: "/filing/itr6", label: "ITR-6 (Companies)",   flag: "ITR_6" },
-      { key: "/filing/itr7", label: "ITR-7 (Trusts/NGOs)", flag: "ITR_7" },
-    ],
-  },
-  { key: "/calculator",    icon: <CalculatorOutlined />, label: "Tax Calculator", flag: "REGIME_COMPARISON" },
-  { key: "/advance-tax",   icon: <CalendarOutlined />,   label: "Advance Tax",    flag: "ADVANCE_TAX_CALC"  },
-  { key: "/refund-tracker",icon: <BankOutlined />,       label: "Refund Tracker", flag: "REFUND_TRACKER"    },
-  { key: "/profile",       icon: <UserOutlined />,       label: "My Profile",     flag: null },
-  { key: "/admin",         icon: <SettingOutlined />,    label: "Admin Panel",    flag: null, adminOnly: true },
-  // CA Portal nav items — only visible to CA role users
-  { key: "/ca/dashboard",  icon: <AuditOutlined />,      label: "CA Dashboard",   flag: "CA_PORTAL", caOnly: true },
-  { key: "/ca/clients",    icon: <TeamOutlined />,        label: "My Clients",     flag: "CA_PORTAL", caOnly: true },
+  { key: "/dashboard", icon: <DashboardOutlined />, label: "Dashboard",  flag: null },
+  { key: "/profile",   icon: <UserOutlined />,      label: "My Profile", flag: null },
 ];
 
-// Breadcrumb map — path → [crumbs]
+// Breadcrumb map — path → [crumbs]. Only routes still reachable as standalone
+// pages need an entry; /admin, /ca/dashboard, /ca/clients now redirect to /dashboard.
 const BREADCRUMBS = {
   "/dashboard":      [{ title: "Dashboard" }],
   "/filing/itr1":    [{ title: "File Return" }, { title: "ITR-1 (Sahaj)" }],
-  "/filing/itr2":    [{ title: "File Return" }, { title: "ITR-2" }],
-  "/filing/itr3":    [{ title: "File Return" }, { title: "ITR-3" }],
-  "/filing/itr4":    [{ title: "File Return" }, { title: "ITR-4" }],
   "/calculator":     [{ title: "Tax Calculator" }],
   "/advance-tax":    [{ title: "Advance Tax" }],
   "/refund-tracker": [{ title: "Refund Tracker" }],
   "/profile":        [{ title: "My Profile" }],
-  "/admin":          [{ title: "Admin Panel" }],
-  "/ca/dashboard":   [{ title: "CA Dashboard" }],
-  "/ca/clients":     [{ title: "CA Dashboard" }, { title: "Clients" }],
-  "/ca/clients/new": [{ title: "CA Dashboard" }, { title: "Add Client" }],
 };
 
 const initials = (name) =>
@@ -78,12 +62,7 @@ export default function AppLayout() {
 
   const buildMenuItems = (items) =>
     items
-      .filter((item) => {
-        if (item.adminOnly && user?.role !== "admin") return false;
-        if (item.caOnly   && user?.role !== "ca")     return false;
-        if (item.flag && !isEnabled(item.flag))       return false;
-        return true;
-      })
+      .filter((item) => !item.flag || isEnabled(item.flag))
       .map((item) => ({
         key:      item.key,
         icon:     item.icon,
@@ -103,7 +82,7 @@ export default function AppLayout() {
         <div style={{ padding: "4px 0 8px" }}>
           <div style={{ fontWeight: 600, fontSize: 13 }}>{user?.fullName}</div>
           <div style={{ color: "#8c8c8c", fontSize: 11 }}>{user?.pan}</div>
-          {user?.role === "admin" && (
+          {user?.role === "platform_admin" && (
             <Tag color="gold" icon={<CrownOutlined />} style={{ marginTop: 4, fontSize: 10 }}>
               Admin
             </Tag>
@@ -154,7 +133,6 @@ export default function AppLayout() {
           theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
-          defaultOpenKeys={["/filing"]}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
           style={{ borderRight: 0, marginTop: 4 }}
@@ -181,7 +159,7 @@ export default function AppLayout() {
                 {user?.fullName}
               </div>
               <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10 }}>
-                {user?.role === "admin" ? "Admin" : user?.role === "ca" ? "CA / Tax Professional" : "Taxpayer"}
+                {ROLE_LABEL[user?.role] || "Taxpayer"}
               </div>
             </div>
           </div>
@@ -232,14 +210,14 @@ export default function AppLayout() {
               >
                 <Avatar
                   size={34}
-                  style={{ backgroundColor: user?.role === "admin" ? "#faad14" : "#1677ff", fontSize: 13 }}
+                  style={{ backgroundColor: user?.role === "platform_admin" ? "#faad14" : "#1677ff", fontSize: 13 }}
                 >
                   {initials(user?.fullName)}
                 </Avatar>
                 <div style={{ lineHeight: 1.3 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{user?.fullName}</div>
                   <div style={{ color: "#8c8c8c", fontSize: 11 }}>
-                    {user?.role === "admin" ? "Admin" : user?.pan}
+                    {user?.role === "platform_admin" ? "Admin" : user?.pan}
                   </div>
                 </div>
               </div>

@@ -2,15 +2,18 @@ import axios from "axios";
 import crypto from "crypto";
 import { env } from "../../config/env.js";
 import Filing from "../itr/filing.model.js";
+import User   from "../auth/auth.model.js";
+import CAFirm from "../ca/ca-firm.model.js";
 import { decrypt } from "../../utils/encryption.js";
 import { generateITR1XML } from "./xml-generator.js";
 
-// Live mode requires both ITD_API_BASE_URL and ITD_API_KEY in env.
+// Platform-level mock mode — used by generateEVC / validateEVC.
+// submitToITD resolves credentials per-filing (CA's own key first, then this fallback).
 const MOCK_MODE = !env.itdApiBaseUrl || !env.itdApiKey;
 
-const itdHeaders = () => ({
+const itdHeaders = (apiKey) => ({
   "Content-Type": "application/json",
-  "x-api-key":    env.itdApiKey,
+  "x-api-key":    apiKey ?? env.itdApiKey,
 });
 
 // ── Step 1: Generate EVC (send OTP to taxpayer's registered mobile) ──────────
@@ -66,6 +69,26 @@ export const submitToITD = async (userId, filingId, evc, evcMethod) => {
     throw Object.assign(new Error("This return has already been e-filed"), { status: 409 });
   }
 
+  // Resolve ITD credentials: CA's own key takes priority over the platform env.
+  // This allows each CA firm to register as their own ERI/ASP with ITD.
+  let effectiveBaseUrl = env.itdApiBaseUrl;
+  let effectiveApiKey  = env.itdApiKey;
+  let credentialSource = "platform";
+
+  if (filing.preparedByCa) {
+    const ca   = await User.findById(filing.preparedByCa).select("caFirmId").lean();
+    const firm = ca?.caFirmId
+      ? await CAFirm.findById(ca.caFirmId).select("itdApiBaseUrl itdApiKeyEncrypted").lean()
+      : null;
+    if (firm?.itdApiBaseUrl && firm?.itdApiKeyEncrypted) {
+      effectiveBaseUrl = firm.itdApiBaseUrl;
+      effectiveApiKey  = decrypt(firm.itdApiKeyEncrypted);
+      credentialSource = "ca";
+    }
+  }
+
+  const isMock = !effectiveBaseUrl || !effectiveApiKey;
+
   // Decrypt PII before generating XML
   const raw      = filing.toObject();
   const itr1Data = { ...raw.itr1Data };
@@ -79,17 +102,16 @@ export const submitToITD = async (userId, filingId, evc, evcMethod) => {
   }
   const xmlFiling = { ...raw, itr1Data };
 
-  const xml      = generateITR1XML(xmlFiling);
+  const xml = generateITR1XML(xmlFiling);
   let   itrVAckNo;
 
-  if (MOCK_MODE) {
-    // Simulate a short processing delay that ITD would normally take
+  if (isMock) {
     itrVAckNo = `${filing.assessmentYear.replace("-", "")}${filing.itr1Data.pan}${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
   } else {
     const res = await axios.post(
-      `${env.itdApiBaseUrl}/oas/efilingapi/EF/submitReturn`,
+      `${effectiveBaseUrl}/oas/efilingapi/EF/submitReturn`,
       { returnXML: xml, evc, pan: filing.itr1Data.pan },
-      { headers: itdHeaders() }
+      { headers: itdHeaders(effectiveApiKey) }
     );
     itrVAckNo = res.data?.acknowledgementNo;
     if (!itrVAckNo) throw new Error("ITD API did not return an acknowledgement number");
@@ -105,7 +127,7 @@ export const submitToITD = async (userId, filingId, evc, evcMethod) => {
     },
   });
 
-  return { itrVAckNo, mockMode: MOCK_MODE };
+  return { itrVAckNo, mockMode: isMock, credentialSource };
 };
 
 // ── Download ITR XML (for the user's records) ────────────────────────────────

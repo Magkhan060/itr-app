@@ -179,11 +179,12 @@ URL.createObjectURL(new Blob([res.data], { type: "application/xml" }));
 ## Completed Modules
 
 ### Authentication (`apps/api/src/modules/auth/`, `apps/web/src/pages/auth/`)
-- Register with role selection: **Taxpayer** (`user`) or **CA** (`ca`)
-- CA registration captures firm name and ICAI membership number
+- Register with role selection: **Taxpayer** (`taxpayer`) or **CA** (`ca_admin`)
+- CA registration creates a `CAFirm` document (firm name, ICAI number) and links it via `user.caFirmId`
 - Login returns JWT with role embedded (avoids per-request DB lookup)
 - `auth.middleware.js` reads role from `decoded.role` — no `User.findById()` on every request
-- `requireCA.middleware.js` guards all CA-only routes (returns 403 for non-CA)
+- `requireCA.middleware.js` guards all CA-only routes (currently `ca_admin`; will accept `ca_staff`/`ca_readonly` once Phase 2 ships)
+- See **Role & Permission Model** below for the full role hierarchy
 
 ### ITR-1 Filing — Self Service (`apps/web/src/pages/filing/itr1/`, `apps/api/src/modules/itr/`)
 Full 4-step wizard (Personal Info → Income → Deductions → Tax Summary + Submit):
@@ -253,7 +254,7 @@ Full CA workflow for filing ITR on behalf of clients. Feature-gated: `CA_PORTAL`
 **Client management:**
 - `CAClient` model: identity (name, PAN, Aadhaar, DOB, gender, father's name), contact (email, mobile), address (line 1, city, PIN), employment (employer name/TAN), banking (account no, IFSC), notes
 - CA can Add / Edit / View / soft-delete clients
-- `/ca/clients` nav redirects to `/ca/dashboard` which contains the full client roster
+- `/ca/clients` and `/ca/dashboard` both redirect to `/dashboard`, which renders the CA Dashboard (`CADashboard.jsx`) for any `ca_*` role — see "Unified Dashboard Routing" below
 
 **CA filing on behalf of client:**
 - `CAITRFiling.jsx` — same ITR-1 form pre-populated from client record
@@ -279,9 +280,8 @@ Full CA workflow for filing ITR on behalf of clients. Feature-gated: `CA_PORTAL`
 - WhatsApp: deep-links (`wa.me/91<mobile>?text=...`) pre-filled with approval URL — no API needed
 - All notification failures are non-fatal (logged, filing proceeds)
 
-**CA Dashboard (`/ca/dashboard`):**
-Pipeline stats: Total Clients, Pending Approval, Client Approved, e-Filed, No Filing Yet.
-Searchable client table with filing status and approval status tags. Click-through to Client Workspace.
+**CA Dashboard (mounted at `/dashboard` for `ca_*` roles):**
+Tabs: Clients (pipeline stats — Total Clients, Action Required, Pending Approval, Client Approved, e-Filed, No Filing Yet; searchable/sortable/filterable client table + Compliance Calendar sidebar), Team (firm roster + invites, `ca_admin`-gated controls), Settings (`ca_admin` only — firm name, ICAI number, ITD credentials).
 
 ### Approval System (`apps/api/src/modules/approvals/`)
 - `sendApprovalRequest(caId, filingId)` — generates token, emails + SMSes client
@@ -300,12 +300,22 @@ Note: switches to real ITD API data when `EFILING_DIRECT` is live and ITD creden
 - **Tax Calculator** (`/calculator`) — Standalone regime comparison with inputs
 - **Advance Tax Calculator** (`/advance-tax`) — Quarterly advance tax computation
 - **Form 16 / Document Upload** — PDF upload, parsing, pre-fill drawer in ITR-1 form
-- **Admin Panel** (`/admin`) — Admin-only area (role: "admin"), lazy-loaded
+- **Admin Panel** (mounted at `/dashboard` for `platform_admin` role) — Tabs: Overview (platform-management metrics only — no filing content), Users, Feature Flags, Audit Log, and File ITR (embeds the taxpayer `Dashboard.jsx` so admins can self-file)
 - **Dashboard** — Filing status, quick actions, recent activity
 
 ---
 
 ## Key Architectural Decisions
+
+### Unified Dashboard Routing
+`/dashboard` is the single landing page for every role — there are no separate `/admin` or `/ca/dashboard` destinations anymore. `App.jsx`'s `DashboardRouter` role-dispatches what renders at that one URL:
+- `platform_admin` → `AdminLayout` (Overview / Users / Feature Flags / Audit Log / File ITR tabs)
+- `ca_admin` / `ca_staff` / `ca_readonly` → `CADashboard` (Clients / Team / Settings tabs)
+- `taxpayer` → `Dashboard.jsx` (quick actions, available ITR forms, my filings)
+
+`/admin`, `/ca/dashboard`, and `/ca/clients` still exist as routes but only as `<Navigate to="/dashboard" replace />` redirects, so old bookmarks/links keep working. `AppLayout`'s sidebar is trimmed to just **Dashboard** + **My Profile** for every role — Tax Calculator, Advance Tax, Refund Tracker, and the ITR-1..7 filing pages are still real routes, just reachable via tiles/links on the Dashboard itself rather than pinned to the sidebar.
+
+The Admin's "File ITR" tab and a CA's self-filing both reuse the same `Dashboard.jsx` component (no forked copy) — `platform_admin` and `ca_admin` are also individuals with their own personal returns to file.
 
 ### ASP/ERI Model for ITD Filing
 The platform registers as an ASP/ERI (e-Return Intermediary) with ITD — one API key in `.env` covers all filings by all users. Individual taxpayers and CA clients do not need their own ITD credentials. Taxpayers only provide EVC (OTP) to authorize their return.
@@ -335,22 +345,124 @@ Client-submitted tax values are always discarded. The backend recomputes tax via
 
 ---
 
+## Role & Permission Model
+
+**Role hierarchy** (`apps/api/src/modules/auth/auth.model.js`):
+
+| Role | Who | Notes |
+|---|---|---|
+| `platform_admin` | Platform staff | Full access — feature flags, all users, all CA firms. Provisioned manually via `make-admin.js`, not self-registrable |
+| `platform_support` | Platform staff (Phase 5) | Reserved enum value — view-only ops/support role, not yet implemented |
+| `taxpayer` | Individual filer | Self-service ITR filing, default role on registration |
+| `ca_admin` | Registered CA (firm owner) | Self-registrable. Owns a `CAFirm` document. Full access to firm settings, team management, and the filing pipeline (draft → submit → approval → e-file). Can also self-file as a taxpayer |
+| `ca_staff` | CA firm employee, invite-only | Can manage clients and prepare/edit ITR drafts. **Cannot** finalize submission, send for client approval, or e-file — those are `ca_admin`-only finalization steps |
+| `ca_readonly` | CA firm employee, invite-only | View-only — can see the client roster and filing statuses, no create/edit/submit actions anywhere |
+
+**CAFirm model** (`apps/api/src/modules/ca/ca-firm.model.js`): created automatically when a user registers as `ca_admin`. Holds `firmName`, `icaiMemberNo`, and the CA's own ITD ERI/ASP credentials (`itdApiBaseUrl`, `itdApiKeyEncrypted` — AES-256-CBC, same pattern as PII encryption). The `User` document only stores `caFirmId`, a reference to this firm.
+
+- `ca-firm.service.js` exposes `createFirmForAdmin()`, `getFirmByAdminId()`, `getFirmById()`, `getCAFirmIdForUser()`, and `resolveOwnerUserId(userId, role)`.
+- **`resolveOwnerUserId`** is the key to multi-user firms without a schema migration: `CAClient` and `Filing` still key off the CA Admin's individual `userId` (not `caFirmId`) exactly as in Phase 1. When a `ca_staff`/`ca_readonly` user calls a CA Portal endpoint, the controller resolves their `caFirmId` → firm → `adminUserId`, and uses *that* as the effective owner ID for every CAClient/Filing query. `ca_admin` resolves to themselves trivially. This means every CA User in a firm transparently shares the same client roster and filings, with zero changes to the CAClient/Filing schemas or their unique indexes.
+- `preparedByCa` on `Filing` is set to the **acting** user (whoever actually saved the draft/submitted), not the resolved owner — so audit trail (and `efiling.service.js`'s per-CA ITD credential lookup, which reads `preparedByCa`'s `caFirmId`) reflects who really did the work.
+- Three permission middlewares, applied per-route in `ca.routes.js` / `approval.routes.js`:
+  - `requireCA.middleware.js` — any of `ca_admin`/`ca_staff`/`ca_readonly` (view access to the CA Portal)
+  - `requireCAWrite.middleware.js` — `ca_admin`/`ca_staff` (client CRUD, draft save) — blocks `ca_readonly`
+  - `requireCAAdmin.middleware.js` — `ca_admin` only (submit ITR1, send for approval, e-file, firm settings, team management)
+- Self-registration only accepts `taxpayer` or `ca_admin` (`auth.validator.js`). `ca_staff`/`ca_readonly` are invite-only (see below). `platform_admin` is provisioned via `node apps/api/src/scripts/make-admin.js <PAN>`.
+
+**CA User invites** (`apps/api/src/modules/ca/ca-invite.*`, public routes at `/api/invites`):
+- `ca_admin` invites by email + role (`ca_staff` or `ca_readonly`) from the CA Dashboard → Team tab. Generates a UUID token, 7-day expiry, emails a link via `caInviteEmail()` template.
+- Public `GET /api/invites/:token` returns invite info (email, role, firm name) for the invite-acceptance page; `POST /api/invites/:token/accept` registers the new user with the invited role + `caFirmId`, auto-logs them in (same response shape as `registerUser`).
+- Frontend: `apps/web/src/pages/auth/JoinFirm.jsx` at `/join-firm/:token` (public route, no auth) — mirrors `ApprovePage`'s public-token pattern but is a registration form instead of an approval form.
+- CA Dashboard → Team tab (`CATeamPanel` in `CADashboard.jsx`) lists firm members + pending invites; `ca_admin` can change a member's role between `ca_staff`/`ca_readonly`, deactivate/reactivate members, and revoke pending invites. Visible (read-only) to all CA roles; write controls only render for `ca_admin`.
+
+**Migration:** `apps/api/src/scripts/migrate-roles-phase1.js` — one-time, idempotent script that renames `user→taxpayer`, `admin→platform_admin`, `ca→ca_admin` (+ creates a `CAFirm` per existing CA and moves `caFirmName`/`caMemberNo`/`caItdApiBaseUrl`/`caItdApiKeyEncrypted` off the `User` document onto it). Must be run once against any pre-Phase-1 database. No further migration is needed for Phase 2 — `ca_staff`/`ca_readonly` users are created directly with `caFirmId` set via the invite flow.
+
+---
+
 ## In Progress / Next Steps
 
 ### Immediate (blocking go-live)
-1. **Aadhaar Verhoeff validation** — Currently only 12-digit regex. Full Verhoeff check algorithm required per domain rules. Should live in `packages/shared-types/validators/aadhaar.js` and be imported in both frontend form and backend Zod validator.
+1. ~~Aadhaar Verhoeff validation~~ — Done. `packages/shared-types/validators/aadhaar.js` exports `isValidAadhaarChecksum()` + `AADHAAR_REGEX`. Wired into the backend Zod schema (`filing.validator.js`, via `.refine()`) and both frontend forms that collect Aadhaar (`ITR1Filing.jsx`, `AddEditClient.jsx`, via a custom AntD form rule). Unit tests in `apps/api/src/modules/itr/aadhaar.validator.test.js` cover the known-valid vector, altered check digit, every single-digit mutation, and adjacent transposition.
 2. **Feature flag seed script** — `reset-flags.js` uses `$setOnInsert` and won't update flags already in MongoDB. Need a `force-update-flags.js` that uses `$set` unconditionally to activate `CA_PORTAL` and `EFILING_DIRECT` on existing databases.
-3. **Gmail + Twilio credentials** — Set `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `TWILIO_*` in `apps/api/.env` for real email/SMS. App works without them (mock mode logs to console) but go-live needs real notifications.
+3. ~~Gmail credentials~~ — Done, real SMTP confirmed working. **Twilio SMS credentials** still outstanding — set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` in `apps/api/.env` for real SMS (currently mock-mode logs to console).
 
 ### Near Term
 4. **ITD ERI/ASP registration** — Apply on incometax.gov.in as an e-Return Intermediary. Once approved, set `ITD_API_BASE_URL` and `ITD_API_KEY` in `.env` to enable Phase 3 direct API filing.
 5. **Multiple TDS entries** — Currently one employer per filing. Need to support multiple Form 16s (job change mid-year). The `tdsEntries` array schema exists in the model but the form only captures a single employer.
 6. **Allowance breakdown in form** — Form uses single `grossSalary` field. For high-income filers with complex allowances (like the PDF example with separate Salary + HRA + AALLOWANCE), a detailed breakdown matching Form 16 Part B would be more accurate.
 7. **26AS XML import** — Parse 26AS to pre-fill TDS entries, interest income, and capital gains. Endpoint and parser scaffolding to be added.
-8. **CA Profile page** — CA should be able to update firm name, ICAI number, and optionally add their own ITD ASP credentials (falls back to platform `.env` key).
+8. ~~CA Profile page~~ — Done. CA Dashboard → Settings tab; firm name/ICAI number/ITD credentials now live on `CAFirm` (see Role & Permission Model above).
 
-### Planned (Phase 2 CA Portal)
-9. **Client-facing portal** — Clients onboarded as `user` role accounts to view their own filings, download ITR XML, track refund status — without needing CA involvement for read access.
-10. **ITR-2 through ITR-7** — Only ITR-1 implemented. Other types gated by feature flags (`ITR_2`…`ITR_7`). Each needs its own model, validator, form wizard, and XML generator.
-11. **Real ITD Refund API** — Replace simulated refund timeline with live ITD API call when ERI registration is complete.
-12. **Advance tax payment tracking** — Link challan payments to filings; pre-fill from 26AS.
+### Planned (Phase 2 CA Portal — CA Users)
+9. ~~`ca_staff` / `ca_readonly` roles~~ — Done. Invite flow, `requireCAWrite`/`requireCAAdmin` middleware, and the CA Dashboard → Team tab are live (see Role & Permission Model above).
+10. ~~Re-scope CAClient/Filing ownership~~ — Done via `resolveOwnerUserId()` rather than a schema migration — see Role & Permission Model above for why no CAClient/Filing schema change was needed.
+11. **Client-facing portal** — Clients onboarded as `taxpayer` role accounts to view their own filings, download ITR XML, track refund status — without needing CA involvement for read access.
+12. **ITR-2 through ITR-7** — Only ITR-1 implemented. Other types gated by feature flags (`ITR_2`…`ITR_7`). Each needs its own model, validator, form wizard, and XML generator.
+13. **Real ITD Refund API** — Replace simulated refund timeline with live ITD API call when ERI registration is complete.
+14. **Advance tax payment tracking** — Link challan payments to filings; pre-fill from 26AS.
+
+### Planned (Phase 3-5 — Platform Admin & Ops)
+15. **Platform Admin: CA firm management** — View/search all CA firms, deactivate a firm (cascades to its users), view firm-level filing stats.
+16. **Per-firm feature flag overrides** — CA Admin restricts which platform features their own `ca_staff`/`ca_readonly` can use (separate from the global `FeatureFlag` collection).
+17. **Audit log for CA actions** — Extend the existing `AuditLog` model (currently platform-admin-only actions) to record filing-level actions (created/submitted/sent for approval/e-filed) with actor + role.
+18. **`platform_support` role** — View-only ops/support role; enum value reserved but no routes/UI implemented yet.
+
+---
+
+## Current State
+
+### Development Commands
+
+```bash
+# Backend — auto-restarts on change
+cd apps/api && npm run dev        # nodemon src/server.js → http://localhost:5000
+
+# Frontend — Vite dev server
+cd apps/web && npm run dev        # http://localhost:5173
+```
+
+### Tests (both apps use Vitest, not Jest)
+```bash
+cd apps/api && npm test                                       # run all tests once
+cd apps/api && npm run test:watch                            # watch mode
+cd apps/api && npm run test:coverage                         # coverage report
+
+# Run a single test file
+cd apps/api && npx vitest run src/modules/tax-engine/engine.service.test.js
+```
+
+### Build & Production
+```bash
+cd apps/web && npm run build      # Vite production build → dist/
+cd apps/api && npm start          # production (no nodemon)
+```
+
+### One-off Admin Scripts
+```bash
+# Reset all feature flags in MongoDB to defaults from flags.js (uses $set — overwrites existing values)
+node apps/api/src/scripts/reset-flags.js
+
+# Promote a user to admin by PAN
+node apps/api/src/scripts/make-admin.js ABCDE1234F
+```
+
+### Zustand Stores (`apps/web/src/store/index.js`)
+Three stores:
+- `useAuthStore` — `user`, `token` (persisted to `localStorage` as `itr_token`), `logout()`
+- `useFlagsStore` — flat map of `{ [flagKey]: boolean }` loaded at app boot
+- `useFilingStore` — `currentITRType`, `filingData` keyed by section, `resetFiling()`
+
+### Test File Locations
+Test files are co-located with source:
+- `apps/api/src/modules/tax-engine/engine.service.test.js` — pure computation, no mocks needed
+- `apps/api/src/modules/auth/auth.service.test.js` — Mongoose/JWT/bcrypt mocked with `vi.mock()`
+- `apps/api/src/modules/itr/filing.validator.test.js`
+- `apps/api/src/utils/encryption.test.js`
+- `apps/api/src/middleware/featureFlag.middleware.test.js`
+- `apps/api/src/modules/documents/form16.parser.test.js`
+
+### ANTD v5 Reminder
+Use `Card variant="borderless"` — not `Card bordered={false}` (removed in v5).
+
+### Dayjs Gotcha (DatePicker)
+`dateOfBirth` from ANTD `DatePicker` is a dayjs object. Call `.format("YYYY-MM-DD")` before spreading into draft/submit payloads to avoid circular reference errors.

@@ -58,6 +58,27 @@ export const approvalRequestEmail = ({ clientName, caName, caFirm, filingId, tok
 </html>`,
 });
 
+export const caInviteEmail = ({ inviterName, firmName, role, token, appUrl }) => ({
+  subject: `You've been invited to join ${firmName || "a CA practice"} on ITR Filing Portal`,
+  html: `
+<!DOCTYPE html>
+<html>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+  <div style="background:#722ed1;padding:20px;border-radius:8px 8px 0 0;text-align:center">
+    <h2 style="color:#fff;margin:0">You're Invited!</h2>
+  </div>
+  <div style="background:#fff;border:1px solid #e8e8e8;border-top:none;padding:28px;border-radius:0 0 8px 8px">
+    <p><strong>${inviterName || "A CA Admin"}</strong> has invited you to join <strong>${firmName || "their CA practice"}</strong> on the ITR Filing Portal as a <strong>${role === "ca_staff" ? "Team Member" : "Read-Only Viewer"}</strong>.</p>
+    <p>Click below to set up your account:</p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="${appUrl}/join-firm/${token}" style="background:#722ed1;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Accept Invite</a>
+    </div>
+    <p style="color:#888;font-size:12px">This invite link is valid for 7 days.</p>
+  </div>
+</body>
+</html>`,
+});
+
 export const approvalResponseEmail = ({ caName, clientName, status, comment }) => ({
   subject: `Client ${status === "approved" ? "Approved" : "Rejected"} ITR Filing — ${clientName}`,
   html: `

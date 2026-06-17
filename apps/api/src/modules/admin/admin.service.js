@@ -1,13 +1,12 @@
 import User      from "../auth/auth.model.js";
-import Filing    from "../itr/filing.model.js";
 import Document  from "../documents/documents.model.js";
 import AuditLog  from "./audit.model.js";
 
+// Platform-management metrics only — filing content/status is out of scope for
+// the platform admin (see Role & Permission Model in CLAUDE.md).
 export const getDashboardStats = async () => {
-  const [totalUsers, totalFilings, submittedFilings, totalDocs] = await Promise.all([
+  const [totalUsers, totalDocs] = await Promise.all([
     User.countDocuments(),
-    Filing.countDocuments(),
-    Filing.countDocuments({ status: { $ne: "draft" } }),
     Document.countDocuments(),
   ]);
 
@@ -17,24 +16,7 @@ export const getDashboardStats = async () => {
     .select("fullName pan email createdAt role")
     .lean();
 
-  const filingsByType = await Filing.aggregate([
-    { $group: { _id: "$itrType", count: { $sum: 1 } } },
-    { $sort:  { count: -1 } },
-  ]);
-
-  const filingsByStatus = await Filing.aggregate([
-    { $group: { _id: "$status", count: { $sum: 1 } } },
-  ]);
-
-  return {
-    totalUsers,
-    totalFilings,
-    submittedFilings,
-    totalDocs,
-    recentUsers,
-    filingsByType,
-    filingsByStatus,
-  };
+  return { totalUsers, totalDocs, recentUsers };
 };
 
 export const getAllUsers = async ({ page = 1, limit = 20, search = "" }) => {

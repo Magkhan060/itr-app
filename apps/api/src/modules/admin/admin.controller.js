@@ -23,7 +23,7 @@ export const getAllUsers = async (req, res, next) => {
 export const updateUserRole = async (req, res, next) => {
   try {
     const { role } = req.body;
-    if (!["user", "admin"].includes(role)) {
+    if (!["taxpayer", "platform_admin"].includes(role)) {
       return response.error(res, "Invalid role", 400, "INVALID_ROLE");
     }
     const user = await adminService.updateUserRole(req.params.id, role, req.userId);

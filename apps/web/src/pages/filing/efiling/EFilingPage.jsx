@@ -10,9 +10,9 @@ import {
   FileTextOutlined, CloudUploadOutlined, DownloadOutlined,
   ExclamationCircleOutlined, LockOutlined,
 } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../../store/index.js";
-import { getMyFilings }        from "../../../services/filing.service.js";
+import { getMyFilings, getFilingById } from "../../../services/filing.service.js";
 import { generateEVC, validateEVC, submitReturn, downloadXML } from "../../../services/efiling.service.js";
 
 const { Title, Text, Paragraph } = Typography;
@@ -50,9 +50,11 @@ const STEPS = [
 ];
 
 export default function EFilingPage() {
-  const { user }  = useAuthStore();
-  const navigate  = useNavigate();
-  const [form]    = Form.useForm();
+  const { user }          = useAuthStore();
+  const navigate          = useNavigate();
+  const [searchParams]    = useSearchParams();
+  const filingIdParam     = searchParams.get("filingId");
+  const [form]            = Form.useForm();
 
   const [current, setCurrent]     = useState(0);
   const [loading, setLoading]     = useState(true);
@@ -73,22 +75,33 @@ export default function EFilingPage() {
 
   useEffect(() => {
     setLoading(true);
-    getMyFilings()
-      .then((res) => {
-        const filings = res.data || [];
-        // Pick the most recent submitted ITR-1 that hasn't been e-filed yet
-        const target = filings.find(
-          (f) => f.itrType === "ITR-1" && f.status === "submitted" && f.efilingStatus !== "submitted"
-        );
-        // If already e-filed, show it too
-        const efiled = filings.find(
-          (f) => f.itrType === "ITR-1" && f.efilingStatus === "submitted"
-        );
-        setFiling(target || efiled || null);
-      })
-      .catch(() => setError("Failed to load your filings. Please try again."))
-      .finally(() => setLoading(false));
-  }, []);
+
+    if (filingIdParam) {
+      // Specific filing requested — CA portal passes ?filingId=<id> from ClientWorkspace.
+      // Fetch that exact filing so we always e-file the correct client's return.
+      getFilingById(filingIdParam)
+        .then((res) => setFiling(res.data))
+        .catch(() => setError("Filing not found or you do not have access to it."))
+        .finally(() => setLoading(false));
+    } else {
+      // No filingId in URL — self-filing taxpayer flow: auto-pick the right filing.
+      getMyFilings()
+        .then((res) => {
+          const filings = res.data || [];
+          // Pick the most recent submitted ITR-1 that hasn't been e-filed yet
+          const target = filings.find(
+            (f) => f.itrType === "ITR-1" && f.status === "submitted" && f.efilingStatus !== "submitted"
+          );
+          // If already e-filed, show the acknowledgement
+          const efiled = filings.find(
+            (f) => f.itrType === "ITR-1" && f.efilingStatus === "submitted"
+          );
+          setFiling(target || efiled || null);
+        })
+        .catch(() => setError("Failed to load your filings. Please try again."))
+        .finally(() => setLoading(false));
+    }
+  }, [filingIdParam]);
 
   // ── Step 0: Review ───────────────────────────────────────────────────────
   const ReviewStep = () => {

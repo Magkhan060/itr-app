@@ -18,12 +18,12 @@ export default function Register() {
   const navigate = useNavigate();
   const { setToken, setUser } = useAuthStore();
   const [current, setCurrent]   = useState(0);
-  const [role, setRole]         = useState("user");
+  const [role, setRole]         = useState("taxpayer");
   const [loading, setLoading]   = useState(false);
   const [apiError, setApiError] = useState(null);
   const [form] = Form.useForm();
 
-  const isCA = role === "ca";
+  const isCA = role === "ca_admin";
 
   const steps = [
     { title: "Account Type", description: "Taxpayer or CA" },
@@ -65,7 +65,7 @@ export default function Register() {
       setToken(res.data.token);
       setUser(res.data.user);
       message.success("Account created successfully!");
-      navigate(isCA ? "/ca/dashboard" : "/dashboard");
+      navigate("/dashboard");
     } catch (err) {
       setApiError(err.message);
       setCurrent(0);
@@ -108,11 +108,11 @@ export default function Register() {
               <Row gutter={12}>
                 <Col span={12}>
                   <div
-                    onClick={() => setRole("user")}
+                    onClick={() => setRole("taxpayer")}
                     style={{
                       padding: 20, borderRadius: 10, cursor: "pointer", textAlign: "center",
-                      border: `2px solid ${role === "user" ? "#1677ff" : "#e8e8e8"}`,
-                      background: role === "user" ? "#e6f4ff" : "#fff",
+                      border: `2px solid ${role === "taxpayer" ? "#1677ff" : "#e8e8e8"}`,
+                      background: role === "taxpayer" ? "#e6f4ff" : "#fff",
                       transition: "all 0.2s",
                     }}
                   >
@@ -123,11 +123,11 @@ export default function Register() {
                 </Col>
                 <Col span={12}>
                   <div
-                    onClick={() => setRole("ca")}
+                    onClick={() => setRole("ca_admin")}
                     style={{
                       padding: 20, borderRadius: 10, cursor: "pointer", textAlign: "center",
-                      border: `2px solid ${role === "ca" ? "#1677ff" : "#e8e8e8"}`,
-                      background: role === "ca" ? "#e6f4ff" : "#fff",
+                      border: `2px solid ${role === "ca_admin" ? "#1677ff" : "#e8e8e8"}`,
+                      background: role === "ca_admin" ? "#e6f4ff" : "#fff",
                       transition: "all 0.2s",
                     }}
                   >

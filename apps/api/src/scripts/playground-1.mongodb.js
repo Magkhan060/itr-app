@@ -6,6 +6,6 @@ use("itr-app");
 
 db.users.updateOne(
   { pan: "BIGPK1248H" },
-  { $set: { role: "admin" } }
+  { $set: { role: "platform_admin" } }
 )
 

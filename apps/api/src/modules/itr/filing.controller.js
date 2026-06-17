@@ -1,5 +1,6 @@
 import * as filingService from "./filing.service.js";
 import { getITRXML } from "../efiling/efiling.service.js";
+import { resolveOwnerUserId } from "../ca/ca-firm.service.js";
 import { saveDraftSchema, submitITR1Schema } from "./filing.validator.js";
 import * as response from "../../utils/response.util.js";
 
@@ -37,23 +38,26 @@ export const getFilingById = async (req, res, next) => {
 
 export const saveDraftForClient = async (req, res, next) => {
   try {
-    const data   = saveDraftSchema.parse(req.body);
-    const result = await filingService.saveDraftForClient(req.userId, req.params.clientId, data);
+    const data    = saveDraftSchema.parse(req.body);
+    const ownerId = await resolveOwnerUserId(req.userId, req.userRole);
+    const result  = await filingService.saveDraftForClient(ownerId, req.params.clientId, data, req.userId);
     return response.success(res, result, "Draft saved");
   } catch (err) { next(err); }
 };
 
 export const submitITR1ForClient = async (req, res, next) => {
   try {
-    const data   = submitITR1Schema.parse(req.body);
-    const result = await filingService.submitITR1ForClient(req.userId, req.params.clientId, data);
+    const data    = submitITR1Schema.parse(req.body);
+    const ownerId = await resolveOwnerUserId(req.userId, req.userRole);
+    const result  = await filingService.submitITR1ForClient(ownerId, req.params.clientId, data, req.userId);
     return response.success(res, result, "ITR-1 submitted for client", 201);
   } catch (err) { next(err); }
 };
 
 export const getClientFilings = async (req, res, next) => {
   try {
-    const result = await filingService.getClientFilings(req.userId, req.params.clientId);
+    const ownerId = await resolveOwnerUserId(req.userId, req.userRole);
+    const result  = await filingService.getClientFilings(ownerId, req.params.clientId);
     return response.success(res, result, "Client filings fetched");
   } catch (err) { next(err); }
 };

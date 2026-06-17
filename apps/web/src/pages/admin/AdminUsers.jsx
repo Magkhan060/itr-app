@@ -104,8 +104,8 @@ export default function AdminUsers() {
           onChange={(role) => handleRoleChange(r._id, role)}
           onClick={(e) => e.stopPropagation()}
         >
-          <Select.Option value="user">User</Select.Option>
-          <Select.Option value="admin">Admin</Select.Option>
+          <Select.Option value="taxpayer">Taxpayer</Select.Option>
+          <Select.Option value="platform_admin">Admin</Select.Option>
         </Select>
       ),
     },
@@ -246,7 +246,7 @@ export default function AdminUsers() {
                   status={drawerUser.isActive ? "success" : "error"}
                   text={<Text style={{ fontSize: 13 }}>{drawerUser.isActive ? "Active" : "Inactive"}</Text>}
                 />
-                {drawerUser.role === "admin" && (
+                {drawerUser.role === "platform_admin" && (
                   <Tag color="gold" icon={<CrownOutlined />} style={{ marginLeft: 8 }}>Admin</Tag>
                 )}
               </div>
@@ -288,11 +288,11 @@ export default function AdminUsers() {
                   style={{ width: "100%" }}
                   onChange={(role) => handleRoleChange(drawerUser._id, role)}
                 >
-                  <Select.Option value="user">
-                    <Space><UserOutlined /> Taxpayer (User)</Space>
+                  <Select.Option value="taxpayer">
+                    <Space><UserOutlined /> Taxpayer</Space>
                   </Select.Option>
-                  <Select.Option value="admin">
-                    <Space><CrownOutlined /> Administrator</Space>
+                  <Select.Option value="platform_admin">
+                    <Space><CrownOutlined /> Platform Admin</Space>
                   </Select.Option>
                 </Select>
               </>

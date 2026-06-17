@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import Filing    from "../itr/filing.model.js";
 import CAClient  from "../ca/ca-client.model.js";
 import User      from "../auth/auth.model.js";
+import { getFirmById } from "../ca/ca-firm.service.js";
 import { sendMail, approvalRequestEmail, approvalResponseEmail } from "../../utils/email.util.js";
 import { sendSMS, approvalSMS, approvalResponseSMS } from "../../utils/sms.util.js";
 import { env } from "../../config/env.js";
@@ -16,7 +17,8 @@ export const sendApprovalRequest = async (caId, filingId) => {
   const client = await CAClient.findById(filing.caClientId);
   if (!client) throw Object.assign(new Error("Client record not found"), { status: 404 });
 
-  const ca = await User.findById(caId).select("fullName caFirmName email").lean();
+  const ca   = await User.findById(caId).select("fullName caFirmId email").lean();
+  const firm = await getFirmById(ca?.caFirmId);
 
   const token = randomUUID();
   await Filing.findByIdAndUpdate(filingId, {
@@ -38,7 +40,7 @@ export const sendApprovalRequest = async (caId, filingId) => {
     const template = approvalRequestEmail({
       clientName: client.fullName,
       caName:     ca.fullName,
-      caFirm:     ca.caFirmName,
+      caFirm:     firm?.firmName,
       filingId,
       token,
       taxSummary,
@@ -67,7 +69,8 @@ export const getApprovalSummary = async (token) => {
   if (!filing) throw Object.assign(new Error("Approval link is invalid or has expired"), { status: 404 });
 
   const client = await CAClient.findById(filing.caClientId).select("fullName pan email").lean();
-  const ca     = await User.findById(filing.preparedByCa).select("fullName caFirmName email").lean();
+  const ca     = await User.findById(filing.preparedByCa).select("fullName caFirmId email").lean();
+  const firm   = await getFirmById(ca?.caFirmId);
 
   const d   = filing.itr1Data || {};
   const tax = d.taxComputation || {};
@@ -77,7 +80,7 @@ export const getApprovalSummary = async (token) => {
     approvalStatus: filing.approvalStatus,
     assessmentYear: filing.assessmentYear,
     client: { fullName: client?.fullName, pan: client?.pan },
-    ca:     { fullName: ca?.fullName, firmName: ca?.caFirmName },
+    ca:     { fullName: ca?.fullName, firmName: firm?.firmName },
     summary: {
       // Employer
       employerName:   d.employerName   || "",

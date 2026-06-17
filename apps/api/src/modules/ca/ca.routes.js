@@ -1,26 +1,42 @@
 import { Router } from "express";
-import { protect }     from "../../middleware/auth.middleware.js";
-import { requireCA }   from "../../middleware/requireCA.middleware.js";
+import { protect }        from "../../middleware/auth.middleware.js";
+import { requireCA }      from "../../middleware/requireCA.middleware.js";
+import { requireCAAdmin } from "../../middleware/requireCAAdmin.middleware.js";
+import { requireCAWrite } from "../../middleware/requireCAWrite.middleware.js";
 import { requireFeature } from "../../middleware/featureFlag.middleware.js";
-import * as clientCtrl from "./ca-client.controller.js";
-import * as filingCtrl from "../itr/filing.controller.js";
+import * as clientCtrl  from "./ca-client.controller.js";
+import * as profileCtrl from "./ca-profile.controller.js";
+import * as inviteCtrl  from "./ca-invite.controller.js";
+import * as filingCtrl  from "../itr/filing.controller.js";
 
 const router = Router();
 
 router.use(protect);
 router.use(requireFeature("CA_PORTAL"));
-router.use(requireCA);
+router.use(requireCA);   // any of ca_admin / ca_staff / ca_readonly
+
+// ── CA Profile (firm settings — ITD credentials, firm name) — admin only ────
+router.get("/profile", requireCAAdmin, profileCtrl.getCAProfile);
+router.put("/profile", requireCAAdmin, profileCtrl.updateCAProfile);
+
+// ── Firm Team (CA Users) ──────────────────────────────────────────────────────
+router.get("/users",                     inviteCtrl.listFirmMembers);            // all CA roles can view the roster
+router.post("/users/invite",             requireCAAdmin, inviteCtrl.createInvite);
+router.delete("/users/invite/:inviteId", requireCAAdmin, inviteCtrl.revokeInvite);
+router.patch("/users/:userId/role",      requireCAAdmin, inviteCtrl.updateMemberRole);
+router.patch("/users/:userId/active",    requireCAAdmin, inviteCtrl.toggleMemberActive);
 
 // ── Client CRUD ───────────────────────────────────────────────────────────────
 router.get("/clients",                clientCtrl.listClients);
-router.post("/clients",               clientCtrl.createClient);
 router.get("/clients/:clientId",      clientCtrl.getClient);
-router.put("/clients/:clientId",      clientCtrl.updateClient);
-router.delete("/clients/:clientId",   clientCtrl.deleteClient);
+router.post("/clients",               requireCAWrite, clientCtrl.createClient);
+router.put("/clients/:clientId",      requireCAWrite, clientCtrl.updateClient);
+router.delete("/clients/:clientId",   requireCAWrite, clientCtrl.deleteClient);
 
 // ── CA Filing on behalf of a client ──────────────────────────────────────────
-router.post("/clients/:clientId/draft",   requireFeature("ITR_1"), filingCtrl.saveDraftForClient);
-router.post("/clients/:clientId/submit",  requireFeature("ITR_1"), filingCtrl.submitITR1ForClient);
+// ca_staff can prepare drafts; only ca_admin can finalize the submission.
+router.post("/clients/:clientId/draft",   requireFeature("ITR_1"), requireCAWrite, filingCtrl.saveDraftForClient);
+router.post("/clients/:clientId/submit",  requireFeature("ITR_1"), requireCAAdmin, filingCtrl.submitITR1ForClient);
 router.get("/clients/:clientId/filings",  filingCtrl.getClientFilings);
 
 export default router;

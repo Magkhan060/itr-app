@@ -20,6 +20,10 @@ export const useFlagsStore = create((set) => ({
     const map = Object.fromEntries(flagsArray.map((f) => [f.key, f.enabled]));
     set({ flags: map });
   },
+  // Granular update — lets the Admin Flags page reflect a toggle app-wide
+  // (sidebar nav, Dashboard quick actions) without requiring a full page reload.
+  setFlag: (key, enabled) =>
+    set((state) => ({ flags: { ...state.flags, [key]: enabled } })),
 }));
 
 export const useFilingStore = create((set) => ({

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidAadhaarChecksum } from "@itr-app/shared-types";
 
 export const saveDraftSchema = z.object({
   itrType:        z.literal("ITR-1").default("ITR-1"),
@@ -20,7 +21,9 @@ export const submitITR1Schema = z.object({
     city:              z.string(),
     pinCode:           z.string().regex(/^\d{6}$/).optional(),
     mobile:            z.string().regex(/^[6-9]\d{9}$/).optional(),
-    aadhaar:           z.string().regex(/^\d{12}$/).optional(),
+    aadhaar:           z.string().regex(/^\d{12}$/).refine(isValidAadhaarChecksum, {
+      message: "Invalid Aadhaar number (checksum failed)",
+    }).optional(),
     employerName:      z.string(),
     employerTAN:       z.string(),
     bankAccountNo:     z.string(),

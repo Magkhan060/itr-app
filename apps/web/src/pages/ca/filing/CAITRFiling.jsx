@@ -11,6 +11,7 @@ import {
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
+import { useAuthStore } from "../../../store/index.js";
 import { getClient, saveDraftForClient, submitITR1ForClient, sendApproval } from "../../../services/ca.service.js";
 import { compareRegimes } from "../../../services/tax.service.js";
 import { DEDUCTION_LIMITS, METRO_CITIES } from "@itr-app/shared-types";
@@ -37,6 +38,8 @@ const STEP_FIELDS = [
 export default function CAITRFiling() {
   const { clientId }   = useParams();
   const navigate       = useNavigate();
+  const { user }       = useAuthStore();
+  const isAdmin         = user?.role === "ca_admin";
   const [form]         = Form.useForm();
   const [current, setCurrent]     = useState(0);
   const [client, setClient]       = useState(null);
@@ -349,10 +352,14 @@ export default function CAITRFiling() {
               <Button type="primary" icon={<ArrowRightOutlined />} size="large" onClick={next} loading={computing && current === 2}>
                 {current === 2 ? "Compute Tax" : "Next"}
               </Button>
-            ) : (
+            ) : isAdmin ? (
               <Button type="primary" icon={<CheckCircleOutlined />} size="large" loading={submitting} onClick={handleSubmit} disabled={!taxResult}>
                 Submit ITR-1 for Client
               </Button>
+            ) : (
+              <Tag color="blue" style={{ padding: "8px 16px", fontSize: 13 }}>
+                Draft saved — ask your CA Admin to review and submit
+              </Tag>
             )}
           </Col>
         </Row>

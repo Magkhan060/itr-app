@@ -127,17 +127,17 @@ export const getFilingById = async (userId, filingId) => {
 
 // ── CA Portal service functions ───────────────────────────────────────────────
 
-export const saveDraftForClient = async (caId, clientId, { itrType, assessmentYear, step, data }) => {
+export const saveDraftForClient = async (caId, clientId, { itrType, assessmentYear, step, data }, actingUserId = caId) => {
   const filter = { userId: caId, caClientId: clientId, itrType, assessmentYear };
   const filing = await Filing.findOneAndUpdate(
     filter,
-    { $set: { status: "draft", itr1Data: encryptPII(data), preparedByCa: caId, caClientId: clientId } },
+    { $set: { status: "draft", itr1Data: encryptPII(data), preparedByCa: actingUserId, caClientId: clientId } },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
   return withDecryptedPII(filing);
 };
 
-export const submitITR1ForClient = async (caId, clientId, { personalInfo, incomeDetails, deductions, selectedRegime }) => {
+export const submitITR1ForClient = async (caId, clientId, { personalInfo, incomeDetails, deductions, selectedRegime }, actingUserId = caId) => {
   const grossIncome = incomeDetails.grossSalary || 0;
   const otherIncome = (incomeDetails.interestIncome || 0) + (incomeDetails.otherIncome || 0);
 
@@ -159,7 +159,7 @@ export const submitITR1ForClient = async (caId, clientId, { personalInfo, income
         itr1Data:          encryptPII(rawItr1Data),
         submittedAt:       new Date(),
         acknowledgementNo: ackNo,
-        preparedByCa:      caId,
+        preparedByCa:      actingUserId,
         caClientId:        clientId,
         approvalStatus:    "not_sent",
       },

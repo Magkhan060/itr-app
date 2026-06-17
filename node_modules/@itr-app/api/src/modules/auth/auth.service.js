@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "./auth.model.js";
 import { env } from "../../config/env.js";
+import { createFirmForAdmin, getFirmById } from "../ca/ca-firm.service.js";
 
 export const registerUser = async ({ pan, fullName, email, mobile, password, dateOfBirth, role, caFirmName, caMemberNo }) => {
   // Check duplicates
@@ -20,13 +21,18 @@ export const registerUser = async ({ pan, fullName, email, mobile, password, dat
     mobile,
     passwordHash,
     dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-    role:        role || "user",
-    caFirmName:  role === "ca" ? caFirmName : undefined,
-    caMemberNo:  role === "ca" ? caMemberNo : undefined,
+    role:        role || "taxpayer",
   });
 
+  let firm = null;
+  if (role === "ca_admin") {
+    firm = await createFirmForAdmin(user._id, { firmName: caFirmName, icaiMemberNo: caMemberNo });
+    user.caFirmId = firm._id;
+    await user.save();
+  }
+
   const token = generateToken(user._id, user.role);
-  return { user: user.toSafeObject(), token };
+  return { user: user.toSafeObject(firm), token };
 };
 
 export const loginUser = async ({ pan, password }) => {
@@ -47,14 +53,16 @@ export const loginUser = async ({ pan, password }) => {
   user.lastLogin = new Date();
   await user.save();
 
+  const firm  = await getFirmById(user.caFirmId);
   const token = generateToken(user._id, user.role);
-  return { user: user.toSafeObject(), token };
+  return { user: user.toSafeObject(firm), token };
 };
 
 export const getUserById = async (id) => {
   const user = await User.findById(id);
   if (!user) throw Object.assign(new Error("User not found"), { status: 404 });
-  return user.toSafeObject();
+  const firm = await getFirmById(user.caFirmId);
+  return user.toSafeObject(firm);
 };
 
 const generateToken = (userId, role = "user") =>

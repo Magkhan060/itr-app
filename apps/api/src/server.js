@@ -42,6 +42,7 @@ import adminRoutes    from "./modules/admin/admin.routes.js";
 import efilingRoutes  from "./modules/efiling/efiling.routes.js";
 import caRoutes       from "./modules/ca/ca.routes.js";
 import approvalRoutes from "./modules/approvals/approval.routes.js";
+import inviteRoutes   from "./modules/ca/invite-public.routes.js";
 import { seedFlags }  from "./modules/features/features.service.js";
 
 app.use("/api/features",  featuresRoutes);
@@ -49,6 +50,7 @@ app.use("/api/admin",     adminRoutes);
 app.use("/api/efiling",   efilingRoutes);
 app.use("/api/ca",        caRoutes);
 app.use("/api/approvals", approvalRoutes);
+app.use("/api/invites",   inviteRoutes);
 
 // ── Error handler ───────────────────────────────────────────
 app.use(errorHandler);

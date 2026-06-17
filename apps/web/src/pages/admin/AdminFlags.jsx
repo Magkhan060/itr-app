@@ -5,6 +5,7 @@ import {
 } from "antd";
 import { InfoCircleOutlined } from "@ant-design/icons";
 import { getAllFlags, toggleFlag } from "../../services/admin.service.js";
+import { useFlagsStore } from "../../store/index.js";
 
 const { Text } = Typography;
 
@@ -18,6 +19,7 @@ export default function AdminFlags() {
   const [flags, setFlags]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState({});
+  const setGlobalFlag = useFlagsStore((s) => s.setFlag);
 
   useEffect(() => {
     getAllFlags()
@@ -33,6 +35,7 @@ export default function AdminFlags() {
       setFlags((prev) =>
         prev.map((f) => (f.key === key ? { ...f, enabled } : f))
       );
+      setGlobalFlag(key, enabled);  // propagate immediately — no page reload needed
       message.success(`${key} ${enabled ? "enabled" : "disabled"}`);
     } catch (err) {
       message.error(err.message);
@@ -100,8 +103,8 @@ export default function AdminFlags() {
           <Space>
             <InfoCircleOutlined />
             <Text>
-              Changes take effect on next page load. ITR form flags gate
-              both API routes and frontend navigation.
+              Changes take effect immediately across the app — sidebar navigation and
+              quick actions update live. ITR form flags also gate the corresponding API routes.
             </Text>
           </Space>
         }

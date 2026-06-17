@@ -18,7 +18,9 @@ export const registerSchema = z.object({
     .regex(/[A-Z]/, "Must contain an uppercase letter")
     .regex(/[0-9]/, "Must contain a number"),
   dateOfBirth: z.string().optional(),
-  role:        z.enum(["user", "ca"]).default("user"),
+  // Self-registration is limited to taxpayer / ca_admin.
+  // ca_staff, ca_readonly are invite-only (Phase 2); platform_admin is provisioned manually.
+  role:        z.enum(["taxpayer", "ca_admin"]).default("taxpayer"),
   caFirmName:  z.string().trim().optional(),
   caMemberNo:  z.string().trim().optional(),
 });

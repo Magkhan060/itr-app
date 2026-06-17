@@ -23,7 +23,11 @@ export const getClient = async (caId, clientId) => {
 
   const filings = await Filing.find({ caClientId: clientId })
     .sort({ createdAt: -1 })
-    .select("status approvalStatus itrType assessmentYear acknowledgementNo efilingStatus submittedAt createdAt")
+    .select(
+      "status approvalStatus approvalToken approvalSentAt approvalRespondedAt approvalComment " +
+      "itrType assessmentYear acknowledgementNo efilingStatus itrVAckNo efiledAt submittedAt createdAt " +
+      "itr1Data.grossSalary itr1Data.tdsDeducted itr1Data.taxComputation itr1Data.selectedRegime"
+    )
     .lean();
 
   return { ...client, filings };

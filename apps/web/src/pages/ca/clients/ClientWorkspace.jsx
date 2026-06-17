@@ -10,6 +10,7 @@ import {
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuthStore } from "../../../store/index.js";
 import { getClient, sendApproval } from "../../../services/ca.service.js";
 
 const { Title, Text } = Typography;
@@ -23,6 +24,9 @@ const STATUS_COLOR   = { draft: "default", submitted: "blue", verified: "green",
 export default function ClientWorkspace() {
   const { clientId }  = useParams();
   const navigate      = useNavigate();
+  const { user }      = useAuthStore();
+  const isAdmin       = user?.role === "ca_admin";
+  const canWrite      = user?.role !== "ca_readonly";
   const [client, setClient]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [sendingApproval, setSendingApproval] = useState(false);
@@ -97,7 +101,7 @@ export default function ClientWorkspace() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/ca/dashboard")}>Back</Button>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/dashboard")}>Back</Button>
           <div>
             <Title level={3} style={{ margin: 0 }}>{client?.fullName}</Title>
             <Space size={4}>
@@ -107,14 +111,27 @@ export default function ClientWorkspace() {
           </div>
         </div>
         <Space>
-          <Button icon={<EditOutlined />} onClick={() => navigate(`/ca/clients/${clientId}/edit`)}>Edit Client</Button>
-          <Button
-            type="primary"
-            icon={<FileTextOutlined />}
-            onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}
-          >
-            {latestFiling?.status === "draft" ? "Continue Filing" : "Start ITR-1"}
-          </Button>
+          {canWrite && (
+            <Button icon={<EditOutlined />} onClick={() => navigate(`/ca/clients/${clientId}/edit`)}>Edit Client</Button>
+          )}
+          {/* Hide the filing button once the return is verified/e-filed — no edits allowed */}
+          {canWrite && (!latestFiling || latestFiling.status === "draft") && (
+            <Button
+              type="primary"
+              icon={<FileTextOutlined />}
+              onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}
+            >
+              {latestFiling?.status === "draft" ? "Continue Filing" : "Start ITR-1"}
+            </Button>
+          )}
+          {canWrite && latestFiling?.status === "submitted" && (
+            <Button
+              icon={<FileTextOutlined />}
+              onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}
+            >
+              Edit Filing
+            </Button>
+          )}
         </Space>
       </div>
 
@@ -141,7 +158,7 @@ export default function ClientWorkspace() {
 
         {/* Right: Latest filing + approval actions */}
         <Col xs={24} lg={16}>
-          {latestFiling && latestFiling.status === "submitted" ? (
+          {latestFiling && latestFiling.status !== "draft" ? (
             <Card
               variant="borderless"
               style={{ borderRadius: 10, marginBottom: 16 }}
@@ -177,26 +194,30 @@ export default function ClientWorkspace() {
                 ))}
               </Row>
 
-              {/* Approval actions */}
+              {/* Approval actions — sending for approval finalizes the filing, so it's CA Admin only */}
               {latestFiling.approvalStatus === "not_sent" && (
                 <Alert
                   type="info"
                   showIcon
                   message="Ready to send for client approval"
-                  description="The ITR has been prepared. Send it to the client for review and approval before e-filing."
+                  description={isAdmin
+                    ? "The ITR has been prepared. Send it to the client for review and approval before e-filing."
+                    : "The ITR has been prepared. Ask your CA Admin to review and send it for client approval."}
                   style={{ marginBottom: 16, borderRadius: 8 }}
                   action={
-                    <Space direction="vertical">
-                      <Button
-                        type="primary"
-                        size="small"
-                        icon={<SendOutlined />}
-                        loading={sendingApproval}
-                        onClick={handleSendApproval}
-                      >
-                        Send via Email + SMS
-                      </Button>
-                    </Space>
+                    isAdmin && (
+                      <Space direction="vertical">
+                        <Button
+                          type="primary"
+                          size="small"
+                          icon={<SendOutlined />}
+                          loading={sendingApproval}
+                          onClick={handleSendApproval}
+                        >
+                          Send via Email + SMS
+                        </Button>
+                      </Space>
+                    )
                   }
                 />
               )}
@@ -221,24 +242,37 @@ export default function ClientWorkspace() {
                 />
               )}
 
-              {latestFiling.approvalStatus === "approved" && (
+              {latestFiling.approvalStatus === "approved" && latestFiling.efilingStatus !== "submitted" && (
                 <Alert
                   type="success"
                   showIcon
                   icon={<CheckCircleOutlined />}
                   message="Client has approved — ready to e-file"
-                  description={`Approved on ${latestFiling.approvalRespondedAt ? new Date(latestFiling.approvalRespondedAt).toLocaleDateString("en-IN") : "—"}`}
+                  description={`Approved on ${latestFiling.approvalRespondedAt ? new Date(latestFiling.approvalRespondedAt).toLocaleDateString("en-IN") : "—"}${!isAdmin ? " — ask your CA Admin to e-file." : ""}`}
                   style={{ marginBottom: 16, borderRadius: 8 }}
                   action={
-                    <Button
-                      type="primary"
-                      size="small"
-                      icon={<SafetyCertificateOutlined />}
-                      onClick={() => navigate(`/efiling?filingId=${latestFiling._id}`)}
-                    >
-                      Proceed to e-File
-                    </Button>
+                    isAdmin && (
+                      <Button
+                        type="primary"
+                        size="small"
+                        icon={<SafetyCertificateOutlined />}
+                        onClick={() => navigate(`/efiling?filingId=${latestFiling._id}`)}
+                      >
+                        Proceed to e-File
+                      </Button>
+                    )
                   }
+                />
+              )}
+
+              {latestFiling.efilingStatus === "submitted" && (
+                <Alert
+                  type="success"
+                  showIcon
+                  icon={<FileDoneOutlined />}
+                  message="Return successfully e-filed with ITD"
+                  description={`ITR-V Acknowledgement: ${latestFiling.itrVAckNo || "—"} · Filed on ${latestFiling.efiledAt ? new Date(latestFiling.efiledAt).toLocaleDateString("en-IN") : "—"}`}
+                  style={{ marginBottom: 16, borderRadius: 8 }}
                 />
               )}
 
@@ -250,9 +284,11 @@ export default function ClientWorkspace() {
                   description={latestFiling.approvalComment ? `Comment: "${latestFiling.approvalComment}"` : "No comment provided."}
                   style={{ marginBottom: 16, borderRadius: 8 }}
                   action={
-                    <Button size="small" onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}>
-                      Revise Filing
-                    </Button>
+                    canWrite && (
+                      <Button size="small" onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}>
+                        Revise Filing
+                      </Button>
+                    )
                   }
                 />
               )}
@@ -267,9 +303,11 @@ export default function ClientWorkspace() {
                 : "Start an ITR-1 filing for this client."}
               style={{ marginBottom: 16, borderRadius: 8 }}
               action={
-                <Button type="primary" icon={<FileTextOutlined />} onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}>
-                  {latestFiling?.status === "draft" ? "Continue Filing" : "Start ITR-1"}
-                </Button>
+                canWrite && (
+                  <Button type="primary" icon={<FileTextOutlined />} onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}>
+                    {latestFiling?.status === "draft" ? "Continue Filing" : "Start ITR-1"}
+                  </Button>
+                )
               }
             />
           )}

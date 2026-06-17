@@ -16,9 +16,6 @@ vi.mock("../auth/auth.model.js", () => ({
     countDocuments:   vi.fn(),
   },
 }));
-vi.mock("../itr/filing.model.js", () => ({
-  default: { countDocuments: vi.fn(), aggregate: vi.fn() },
-}));
 vi.mock("../documents/documents.model.js", () => ({
   default: { countDocuments: vi.fn() },
 }));
@@ -27,7 +24,6 @@ vi.mock("./audit.model.js", () => ({
 }));
 
 import User     from "../auth/auth.model.js";
-import Filing   from "../itr/filing.model.js";
 import Document from "../documents/documents.model.js";
 import AuditLog from "./audit.model.js";
 
@@ -259,11 +255,8 @@ describe("getAuditLogs", () => {
 describe("getDashboardStats", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it("returns combined stats from all collections", async () => {
+  it("returns platform-management stats only — no filing content", async () => {
     User.countDocuments.mockResolvedValue(42);
-    Filing.countDocuments
-      .mockResolvedValueOnce(10)  // totalFilings
-      .mockResolvedValueOnce(7);  // submittedFilings
     Document.countDocuments.mockResolvedValue(25);
 
     User.find.mockReturnValue({
@@ -272,19 +265,13 @@ describe("getDashboardStats", () => {
       select: vi.fn().mockReturnThis(),
       lean:   vi.fn().mockResolvedValue([]),
     });
-    // aggregate is called twice: filingsByType then filingsByStatus
-    Filing.aggregate
-      .mockResolvedValueOnce([{ _id: "ITR-1", count: 8 }])
-      .mockResolvedValueOnce([{ _id: "submitted", count: 5 }]);
 
     const stats = await getDashboardStats();
 
     expect(stats.totalUsers).toBe(42);
-    expect(stats.totalFilings).toBe(10);
-    expect(stats.submittedFilings).toBe(7);
     expect(stats.totalDocs).toBe(25);
     expect(stats.recentUsers).toEqual([]);
-    expect(stats.filingsByType).toEqual([{ _id: "ITR-1", count: 8 }]);
-    expect(stats.filingsByStatus).toEqual([{ _id: "submitted", count: 5 }]);
+    expect(stats).not.toHaveProperty("totalFilings");
+    expect(stats).not.toHaveProperty("filingsByStatus");
   });
 });

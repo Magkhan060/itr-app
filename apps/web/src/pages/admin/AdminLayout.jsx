@@ -2,11 +2,13 @@ import React from "react";
 import { Tabs, Typography, Space, Tag } from "antd";
 import {
   DashboardOutlined, TeamOutlined, ControlOutlined, AuditOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 import AdminDashboard from "./AdminDashboard.jsx";
 import AdminUsers     from "./AdminUsers.jsx";
 import AdminFlags     from "./AdminFlags.jsx";
 import AdminAuditLog  from "./AdminAuditLog.jsx";
+import Dashboard      from "../dashboard/Dashboard.jsx";
 
 const { Title } = Typography;
 
@@ -30,6 +32,13 @@ const TABS = [
     key:      "audit",
     label:    <Space><AuditOutlined /> Audit Log</Space>,
     children: <AdminAuditLog />,
+  },
+  {
+    key:      "file-itr",
+    label:    <Space><FileTextOutlined /> File ITR</Space>,
+    // Admins are also individual taxpayers — reuse the same taxpayer dashboard
+    // here rather than maintaining a second copy that drifts out of sync.
+    children: <Dashboard />,
   },
 ];
 

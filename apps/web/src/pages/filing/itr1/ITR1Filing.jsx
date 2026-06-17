@@ -14,7 +14,7 @@ import {
 import { useAuthStore } from "../../../store/index.js";
 import { useFilingStore } from "../../../store/index.js";
 import { compareRegimes } from "../../../services/tax.service.js";
-import { DEDUCTION_LIMITS, METRO_CITIES } from "@itr-app/shared-types";
+import { DEDUCTION_LIMITS, METRO_CITIES, isValidAadhaarChecksum } from "@itr-app/shared-types";
 import { saveDraft, submitITR1, downloadFilingXML } from "../../../services/filing.service.js";
 import { getMyDocuments } from "../../../services/document.service.js";
 import { useNavigate } from "react-router-dom";
@@ -280,7 +280,15 @@ export default function ITR1Filing() {
         <Col xs={24} sm={12}>
           <Form.Item name="aadhaar" label="Aadhaar Number"
             tooltip="12-digit Aadhaar linked to your PAN. Required for EVC (one-click e-verification). Not on Form 16 — check your Aadhaar card."
-            rules={[{ pattern: /^\d{12}$/, message: "Aadhaar must be 12 digits" }]}
+            rules={[
+              { pattern: /^\d{12}$/, message: "Aadhaar must be 12 digits" },
+              {
+                validator: (_, value) =>
+                  !value || isValidAadhaarChecksum(value)
+                    ? Promise.resolve()
+                    : Promise.reject(new Error("Invalid Aadhaar number — please re-check the digits")),
+              },
+            ]}
           >
             <Input placeholder="1234 5678 9012" maxLength={12} />
           </Form.Item>
