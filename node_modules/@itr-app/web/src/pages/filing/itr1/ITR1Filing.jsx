@@ -3,21 +3,25 @@ import {
   Steps, Card, Button, Form, Input, InputNumber,
   Select, DatePicker, Row, Col, Typography,
   Alert, Divider, Result, Tag, Space, Drawer,
-  Tooltip, Spin, Grid,
+  Tooltip, Spin, Grid, Upload, message,
 } from "antd";
 import {
   UserOutlined, BankOutlined, FileTextOutlined,
   CheckCircleOutlined, ArrowLeftOutlined, ArrowRightOutlined,
   FilePdfOutlined, PaperClipOutlined, DownloadOutlined,
-  SafetyCertificateOutlined, GlobalOutlined,
+  SafetyCertificateOutlined, GlobalOutlined, InboxOutlined,
+  ThunderboltOutlined, UploadOutlined,
 } from "@ant-design/icons";
 import { useAuthStore } from "../../../store/index.js";
 import { useFilingStore } from "../../../store/index.js";
 import { compareRegimes } from "../../../services/tax.service.js";
 import { DEDUCTION_LIMITS, METRO_CITIES, isValidAadhaarChecksum } from "@itr-app/shared-types";
 import { saveDraft, submitITR1, downloadFilingXML } from "../../../services/filing.service.js";
-import { getMyDocuments } from "../../../services/document.service.js";
+import { getMyDocuments, uploadDocument } from "../../../services/document.service.js";
 import { useNavigate } from "react-router-dom";
+import PageHeader from "../../../components/PageHeader.jsx";
+
+const { Dragger } = Upload;
 
 const { Title, Text } = Typography;
 const { Option }      = Select;
@@ -51,6 +55,7 @@ export default function ITR1Filing() {
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [form16Doc, setForm16Doc]     = useState(null);
   const [docsLoading, setDocsLoading] = useState(false);
+  const [uploading, setUploading]     = useState(false);
 
   // ── XML download state ────────────────────────────────────────
   const [xmlLoading, setXmlLoading]   = useState(false);
@@ -78,13 +83,52 @@ export default function ITR1Filing() {
     if (user?.pan)      form.setFieldValue("pan",      user.pan);
   }, [user]);
 
+  // ── Form 16 upload + pre-fill ──────────────────────────────────
+  const handleForm16Upload = async ({ file }) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("document", file);
+      formData.append("type", "form16");
+      formData.append("financialYear", "2025-26");
+      const res = await uploadDocument(formData);
+      setForm16Doc(res.data);
+      message.success("Form 16 uploaded and parsed!");
+    } catch (err) {
+      message.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+    return false;
+  };
+
+  const handleUseForm16Values = () => {
+    const p = form16Doc?.parsedData;
+    if (!p) return;
+    // Single form instance with preserve: true (AntD default) keeps values for
+    // fields belonging to steps that aren't currently mounted, so this is safe
+    // to call regardless of which step the user is on.
+    form.setFieldsValue({
+      employerName:     p.employerName     || undefined,
+      employerTAN:      p.employerTAN      || undefined,
+      basicSalary:       p.basicSalary       || undefined,
+      hra_received:      p.hraReceived       || undefined,
+      specialAllowance:  p.specialAllowance  || undefined,
+      bonus:             p.bonus             || undefined,
+      professionalTax:   p.professionalTax   || undefined,
+      tdsDeducted:       p.tdsDeducted       || undefined,
+    });
+    message.success("Form 16 values applied — review them in the Personal and Income steps");
+    setDrawerOpen(false);
+  };
+
   // Fields that belong to each step — used to scope validateFields() so that
   // preserved (unmounted) fields from other steps are not re-validated.
   const STEP_FIELDS = [
     ["fullName", "pan", "dateOfBirth", "gender", "residentialStatus",
      "fatherName", "aadhaar", "mobile", "addressLine1", "pinCode",
      "city", "employerName", "employerTAN", "bankAccountNo", "ifscCode"],
-    ["grossSalary", "hra_received", "professionalTax", "tdsDeducted", "interestIncome", "otherIncome"],
+    ["basicSalary", "hra_received", "specialAllowance", "bonus", "professionalTax", "tdsDeducted", "interestIncome", "otherIncome"],
     ["sec80C", "sec80CCD1B", "sec80D_self", "sec80D_parents",
      "homeLoanInterest", "hra_exempt", "lta", "sec80TTA_TTB", "sec80G"],
   ];
@@ -139,11 +183,14 @@ export default function ITR1Filing() {
           ifscCode:          s0.ifscCode,
         },
         incomeDetails: {
-          grossSalary:    s1.grossSalary    || 0,
-          hra_received:   s1.hra_received   || 0,
-          tdsDeducted:    s1.tdsDeducted    || 0,
-          interestIncome: s1.interestIncome || 0,
-          otherIncome:    s1.otherIncome    || 0,
+          basicSalary:      s1.basicSalary      || 0,
+          hra_received:     s1.hra_received     || 0,
+          specialAllowance: s1.specialAllowance || 0,
+          bonus:            s1.bonus            || 0,
+          professionalTax:  s1.professionalTax  || 0,
+          tdsDeducted:      s1.tdsDeducted      || 0,
+          interestIncome:   s1.interestIncome   || 0,
+          otherIncome:      s1.otherIncome      || 0,
         },
         deductions: {
           sec80C:           s2.sec80C           || 0,
@@ -172,8 +219,13 @@ export default function ITR1Filing() {
     setError(null);
     try {
       const allData = { ...filingData.step0, ...filingData.step1, ...values };
+      const grossIncome =
+        (allData.basicSalary      || 0) +
+        (allData.hra_received     || 0) +
+        (allData.specialAllowance || 0) +
+        (allData.bonus            || 0);
       const payload = {
-        grossIncome: allData.grossSalary || 0,
+        grossIncome,
         otherIncome: (allData.interestIncome || 0) + (allData.otherIncome || 0),
         dateOfBirth: allData.dateOfBirth?.format?.("YYYY-MM-DD") || user?.dateOfBirth,
         deductions: {
@@ -364,12 +416,14 @@ export default function ITR1Filing() {
   );
 
   // ── Step 1: Income ───────────────────────────────────────────
+  // Salary breakdown matches Form 16 Part B — gross salary is computed from
+  // these components rather than entered directly, so it always stays consistent.
   const SALARY_FIELDS = [
     {
-      name:     "grossSalary",
-      label:    "Gross Salary (₹)",
+      name:     "basicSalary",
+      label:    "Basic Salary (₹)",
       required: true,
-      tip:      "Form 16 → Part B: 'Salary as per provisions contained in section 17(1) of the Income-tax Act, 1961'. This is your total gross salary before any deductions — copy the exact figure printed there.",
+      tip:      "Form 16 → Annexure (last pages): 'Basic Salary'. Your base pay before any allowances.",
     },
     {
       name:     "hra_received",
@@ -377,6 +431,21 @@ export default function ITR1Filing() {
       required: false,
       tip:      "Form 16 → Annexure (last pages): look for 'House Rent Allowance'. This is the total HRA your employer paid you during the year — needed to compute your HRA exemption in the next step. Enter 0 if your employer does not pay HRA.",
     },
+    {
+      name:     "specialAllowance",
+      label:    "Special Allowance (₹)",
+      required: false,
+      tip:      "Form 16 → Annexure: 'Special Allowance' or 'Other Allowance'. Any fixed allowance beyond Basic and HRA. Enter 0 if not applicable.",
+    },
+    {
+      name:     "bonus",
+      label:    "Bonus (₹)",
+      required: false,
+      tip:      "Form 16 → Annexure: 'Bonus' or 'Performance Pay'. Any bonus or incentive paid during the year. Enter 0 if not applicable.",
+    },
+  ];
+
+  const OTHER_SALARY_FIELDS = [
     {
       name:     "professionalTax",
       label:    "Professional Tax u/s 16(iii) (₹)",
@@ -409,6 +478,38 @@ export default function ITR1Filing() {
       <Title level={5}>Salary Income</Title>
       <Row gutter={16}>
         {SALARY_FIELDS.map(({ name, label, required, tip }) => (
+          <Col xs={24} sm={12} key={name}>
+            <Form.Item name={name} label={label} tooltip={tip}
+              rules={required ? [{ required: true, message: `${label} is required` }] : []}
+            >
+              <InputNumber
+                style={{ width: "100%" }} min={0}
+                formatter={(v) => `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                parser={(v) => v.replace(/₹\s?|(,*)/g, "")}
+                placeholder="0"
+              />
+            </Form.Item>
+          </Col>
+        ))}
+      </Row>
+
+      <Form.Item shouldUpdate noStyle>
+        {() => {
+          const v = form.getFieldsValue(["basicSalary", "hra_received", "specialAllowance", "bonus"]);
+          const total = (v.basicSalary || 0) + (v.hra_received || 0) + (v.specialAllowance || 0) + (v.bonus || 0);
+          return (
+            <Alert
+              type="success"
+              showIcon
+              message={<Text>Total Gross Salary: <Text strong>{fmt(total)}</Text></Text>}
+              style={{ marginBottom: 20, borderRadius: 8 }}
+            />
+          );
+        }}
+      </Form.Item>
+
+      <Row gutter={16}>
+        {OTHER_SALARY_FIELDS.map(({ name, label, required, tip }) => (
           <Col xs={24} sm={12} key={name}>
             <Form.Item name={name} label={label} tooltip={tip}
               rules={required ? [{ required: true, message: `${label} is required` }] : []}
@@ -752,37 +853,32 @@ export default function ITR1Filing() {
 
   return (
     <div>
-      {/* ── Page header ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <FileTextOutlined style={{ fontSize: 28, color: "#1677ff" }} />
-          <div>
-            <Title level={3} style={{ margin: 0 }}>ITR-1 Filing — Sahaj</Title>
-            <Text type="secondary">Salaried individuals | FY 2025-26 | AY 2026-27</Text>
-          </div>
-        </div>
-
-        {/* Form 16 reference button */}
-        <Tooltip
-          title={
-            docsLoading  ? "Checking for Form 16…" :
-            form16Doc    ? `Open ${form16Doc.originalName} for reference` :
-                           "No Form 16 uploaded — upload from Profile"
-          }
-        >
-          <Button
-            icon={docsLoading ? <Spin size="small" /> : <PaperClipOutlined />}
-            onClick={() => setDrawerOpen(true)}
-            disabled={docsLoading}
-            style={{
-              borderColor: form16Doc ? "#1677ff" : undefined,
-              color:       form16Doc ? "#1677ff" : undefined,
-            }}
+      <PageHeader
+        icon={<FileTextOutlined />}
+        title="ITR-1 Filing — Sahaj"
+        subtitle="Salaried individuals | FY 2025-26 | AY 2026-27"
+        extra={
+          <Tooltip
+            title={
+              docsLoading  ? "Checking for Form 16…" :
+              form16Doc    ? `Open ${form16Doc.originalName} for reference` :
+                             "No Form 16 uploaded yet — upload one below"
+            }
           >
-            {screens.sm ? "View Form 16" : ""}
-          </Button>
-        </Tooltip>
-      </div>
+            <Button
+              icon={docsLoading ? <Spin size="small" /> : <PaperClipOutlined />}
+              onClick={() => setDrawerOpen(true)}
+              disabled={docsLoading}
+              style={{
+                borderColor: form16Doc ? "#1677ff" : undefined,
+                color:       form16Doc ? "#1677ff" : undefined,
+              }}
+            >
+              {screens.sm ? "View Form 16" : ""}
+            </Button>
+          </Tooltip>
+        }
+      />
 
       {/* Steps indicator */}
       <Card variant="borderless" style={{ borderRadius: 10, marginBottom: 24 }}>
@@ -854,24 +950,61 @@ export default function ITR1Filing() {
         styles={{ body: { padding: 0, display: "flex", flexDirection: "column" } }}
       >
         {form16Doc ? (
-          <iframe
-            src={`/uploads/${form16Doc.storedName}`}
-            title="Form 16 PDF"
-            style={{ flex: 1, width: "100%", height: "100%", border: "none", minHeight: "80vh" }}
-          />
+          <>
+            <div style={{
+              padding: "12px 16px", borderBottom: "1px solid #f0f0f0",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              flexWrap: "wrap", gap: 8,
+            }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {form16Doc.parsedData
+                  ? `Parsed with ${form16Doc.parsedData.confidence ?? 0}% confidence`
+                  : "Uploaded"}
+              </Text>
+              <Space>
+                {form16Doc.parsedData && (
+                  <Button type="primary" size="small" icon={<ThunderboltOutlined />} onClick={handleUseForm16Values}>
+                    Use These Values
+                  </Button>
+                )}
+                <Upload
+                  accept=".pdf"
+                  multiple={false}
+                  showUploadList={false}
+                  disabled={uploading}
+                  beforeUpload={(file) => { handleForm16Upload({ file }); return false; }}
+                >
+                  <Button size="small" icon={<UploadOutlined />} loading={uploading}>Replace</Button>
+                </Upload>
+              </Space>
+            </div>
+            <iframe
+              src={`/uploads/${form16Doc.storedName}`}
+              title="Form 16 PDF"
+              style={{ flex: 1, width: "100%", height: "100%", border: "none", minHeight: "70vh" }}
+            />
+          </>
         ) : (
-          <div style={{ padding: 32, textAlign: "center" }}>
-            <FilePdfOutlined style={{ fontSize: 48, color: "#d9d9d9", marginBottom: 16 }} />
-            <Title level={5} style={{ color: "#8c8c8c" }}>No Form 16 uploaded</Title>
-            <Text type="secondary" style={{ display: "block", marginBottom: 20 }}>
-              Upload your Form 16 PDF from your Profile to view it here as a reference while filling the ITR form.
-            </Text>
-            <Button
-              type="primary"
-              onClick={() => { setDrawerOpen(false); navigate("/profile"); }}
-            >
-              Go to Profile to Upload
-            </Button>
+          <div style={{ padding: 32 }}>
+            {uploading ? (
+              <div style={{ textAlign: "center", padding: 40 }}>
+                <Spin size="large" />
+                <p style={{ marginTop: 12 }}>Uploading and parsing Form 16...</p>
+              </div>
+            ) : (
+              <Dragger
+                accept=".pdf"
+                multiple={false}
+                showUploadList={false}
+                beforeUpload={(file) => { handleForm16Upload({ file }); return false; }}
+              >
+                <p className="ant-upload-drag-icon">
+                  <InboxOutlined style={{ color: "#1677ff" }} />
+                </p>
+                <p className="ant-upload-text">Click or drag your Form 16 PDF here</p>
+                <p className="ant-upload-hint">PDF only · Max 5MB · FY 2025-26 — we'll parse it and offer to fill the form for you</p>
+              </Dragger>
+            )}
           </div>
         )}
       </Drawer>

@@ -121,6 +121,32 @@ describe("updateUserRole", () => {
       expect.objectContaining({ before: { role: "admin" }, after: { role: "user" } })
     );
   });
+
+  it.each(["ca_admin", "ca_staff", "ca_readonly"])(
+    "throws 400 when target user's current role is %s (CA roles managed via CA Portal)",
+    async (caRole) => {
+      User.findById.mockReturnValue({
+        select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue({ role: caRole }) }),
+      });
+
+      await expect(updateUserRole(TARGET_ID, "taxpayer", ADMIN_ID))
+        .rejects.toMatchObject({ status: 400 });
+
+      expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
+      expect(AuditLog.create).not.toHaveBeenCalled();
+    }
+  );
+
+  it("throws 404 when target user does not exist (User.findById returns null)", async () => {
+    User.findById.mockReturnValue({
+      select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(null) }),
+    });
+
+    await expect(updateUserRole("nonexistent", "taxpayer", ADMIN_ID))
+      .rejects.toMatchObject({ status: 404, message: "User not found" });
+
+    expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

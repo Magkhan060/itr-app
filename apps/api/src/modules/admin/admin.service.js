@@ -43,11 +43,21 @@ export const getAllUsers = async ({ page = 1, limit = 20, search = "" }) => {
   return { users, total, page, limit, pages: Math.ceil(total / limit) };
 };
 
+const CA_ROLES = ["ca_admin", "ca_staff", "ca_readonly"];
+
 export const updateUserRole = async (userId, role, adminId) => {
   if (userId === adminId.toString()) {
     throw Object.assign(new Error("Cannot change your own role"), { status: 400 });
   }
   const before = await User.findById(userId).select("role").lean();
+  if (!before) throw Object.assign(new Error("User not found"), { status: 404 });
+  if (CA_ROLES.includes(before.role)) {
+    throw Object.assign(
+      new Error("CA team members are managed from the CA Portal's Team tab, not here"),
+      { status: 400 }
+    );
+  }
+
   const user = await User.findByIdAndUpdate(
     userId,
     { $set: { role } },

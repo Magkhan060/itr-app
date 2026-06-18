@@ -7,7 +7,7 @@ import {
   FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined,
   FileDoneOutlined, ArrowRightOutlined, CalculatorOutlined,
   UploadOutlined, BankOutlined, CalendarOutlined, PlusOutlined,
-  SafetyCertificateOutlined, AuditOutlined, TeamOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore, useFlagsStore } from "../../store/index.js";
@@ -26,7 +26,6 @@ const STATUS_COLOR = {
   processed: "purple",
 };
 
-// Base quick actions — role-specific overrides are applied inside the component.
 const QUICK_ACTIONS = [
   {
     key:   "itr1",
@@ -45,6 +44,15 @@ const QUICK_ACTIONS = [
     path:  "/calculator",
     flag:  "REGIME_COMPARISON",
     color: "#f6ffed",
+  },
+  {
+    key:   "advance-tax",
+    icon:  <CalendarOutlined style={{ fontSize: 28, color: "#eb2f96" }} />,
+    title: "Advance Tax",
+    desc:  "Quarterly advance tax computation",
+    path:  "/advance-tax",
+    flag:  "ADVANCE_TAX_CALC",
+    color: "#fff0f6",
   },
   {
     key:   "upload",
@@ -72,12 +80,6 @@ const QUICK_ACTIONS = [
     path:  "/efiling",
     flag:  "EFILING_DIRECT",
     color: "#e6fffb",
-    // CA override applied at render time — see resolveAction(). In practice this
-    // branch is unreachable now since /dashboard role-dispatches to CADashboard
-    // for CA roles before Dashboard.jsx ever mounts for them — kept only for the
-    // platform_admin "File ITR" tab case, where isCA is always false anyway.
-    caPath:  "/dashboard",
-    caDesc:  "Manage pending client e-filings from your dashboard",
   },
 ];
 
@@ -86,7 +88,6 @@ export default function Dashboard() {
   const navigate   = useNavigate();
   const liveFlags  = useFlagsStore((s) => s.flags);
   const hasFetched = Object.keys(liveFlags).length > 0;
-  const isCA       = ["ca_admin", "ca_staff", "ca_readonly"].includes(user?.role);
 
   const [filings, setFilings]             = useState([]);
   const [filingsLoading, setFilingsLoading] = useState(false);
@@ -101,13 +102,6 @@ export default function Dashboard() {
 
   const isEnabled = (key) =>
     hasFetched ? (liveFlags[key] ?? false) : (FLAGS[key]?.enabled ?? false);
-
-  // Resolve role-aware path and description for a quick action.
-  const resolveAction = (action) => ({
-    ...action,
-    path: isCA && action.caPath ? action.caPath : action.path,
-    desc: isCA && action.caDesc ? action.caDesc : action.desc,
-  });
 
   // Stats derived from real filings
   const draftCount     = filings.filter((f) => f.status === "draft").length;
@@ -224,16 +218,13 @@ export default function Dashboard() {
       <Alert
         message={
           <Text>
-            Welcome back, <Text strong>{user?.fullName || (isCA ? "Tax Professional" : "Taxpayer")}</Text>!&nbsp;
-            {isCA
-              ? <>You are signed in as a <Text strong>Chartered Accountant</Text>. Use the CA Dashboard to manage client filings.</>
-              : <>Filing for <Text strong>FY 2025-26 (AY 2026-27)</Text> is open.</>
-            }
+            Welcome back, <Text strong>{user?.fullName || "Taxpayer"}</Text>!&nbsp;
+            Filing for <Text strong>FY 2025-26 (AY 2026-27)</Text> is open.
           </Text>
         }
         type="info"
         showIcon
-        icon={isCA ? <AuditOutlined /> : <FileDoneOutlined />}
+        icon={<FileDoneOutlined />}
         style={{ marginBottom: 24, borderRadius: 8 }}
       />
 
@@ -287,13 +278,12 @@ export default function Dashboard() {
       {/* Quick Actions */}
       <Card
         title="Quick Actions"
-        bordered={false}
+        variant="borderless"
         style={{ borderRadius: 10, marginBottom: 24 }}
         extra={<Tag color="blue">AY 2026-27</Tag>}
       >
         <Row gutter={[12, 12]}>
-          {QUICK_ACTIONS.filter((a) => isEnabled(a.flag)).map((raw) => {
-            const action = resolveAction(raw);
+          {QUICK_ACTIONS.filter((a) => isEnabled(a.flag)).map((action) => {
             return (
               <Col xs={24} sm={12} lg={6} key={action.key}>
                 <div
@@ -316,10 +306,10 @@ export default function Dashboard() {
             );
           })}
 
-          {/* CTA tile — role-aware */}
+          {/* Start new filing CTA */}
           <Col xs={24} sm={12} lg={6}>
             <div
-              onClick={() => navigate(isCA ? "/dashboard" : "/filing/itr1")}
+              onClick={() => navigate("/filing/itr1")}
               style={{
                 background:   "#fff",
                 borderRadius: 10,
@@ -335,12 +325,9 @@ export default function Dashboard() {
               }}
               className="hover:border-blue-400 hover:bg-blue-50"
             >
-              {isCA
-                ? <TeamOutlined style={{ fontSize: 24, color: "#722ed1", marginBottom: 8 }} />
-                : <PlusOutlined style={{ fontSize: 24, color: "#bfbfbf", marginBottom: 8 }} />
-              }
+              <PlusOutlined style={{ fontSize: 24, color: "#bfbfbf", marginBottom: 8 }} />
               <Text type="secondary" style={{ fontSize: 12, textAlign: "center" }}>
-                {isCA ? "Go to CA Dashboard" : "Start a new filing"}
+                Start a new filing
               </Text>
             </div>
           </Col>
@@ -357,7 +344,7 @@ export default function Dashboard() {
                 <span>Available ITR Forms</span>
               </Space>
             }
-            bordered={false}
+            variant="borderless"
             style={{ borderRadius: 10 }}
             extra={<Tag color="green">{enabledForms.length} Active</Tag>}
           >
@@ -381,30 +368,20 @@ export default function Dashboard() {
             title={
               <Space>
                 <FileDoneOutlined />
-                <span>{isCA ? "Client Filings" : "My Filings"}</span>
+                <span>My Filings</span>
               </Space>
             }
-            bordered={false}
+            variant="borderless"
             style={{ borderRadius: 10, height: "100%" }}
             extra={
-              isCA ? (
-                <Button
-                  size="small"
-                  icon={<TeamOutlined />}
-                  onClick={() => navigate("/dashboard")}
-                >
-                  CA Dashboard
-                </Button>
-              ) : (
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<PlusOutlined />}
-                  onClick={() => navigate("/filing/itr1")}
-                >
-                  New Filing
-                </Button>
-              )
+              <Button
+                type="primary"
+                size="small"
+                icon={<PlusOutlined />}
+                onClick={() => navigate("/filing/itr1")}
+              >
+                New Filing
+              </Button>
             }
           >
             <Table

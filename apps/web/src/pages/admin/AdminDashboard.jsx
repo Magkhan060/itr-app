@@ -82,7 +82,7 @@ export default function AdminDashboard() {
           { title: "Documents Uploaded", value: stats.totalDocs,  icon: <FileOutlined />, color: "#722ed1", bg: "#f9f0ff" },
         ].map(({ title, value, icon, color, bg }) => (
           <Col xs={12} lg={6} key={title}>
-            <Card bordered={false} style={{ borderRadius: 10 }} hoverable>
+            <Card variant="borderless" style={{ borderRadius: 10 }} hoverable>
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                 <div
                   style={{
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
             <span>Recent Registrations</span>
           </Space>
         }
-        bordered={false}
+        variant="borderless"
         style={{ borderRadius: 10 }}
         extra={<Tag color="blue">{stats.recentUsers.length} shown</Tag>}
       >

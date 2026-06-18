@@ -30,12 +30,16 @@ export const submitITR1Schema = z.object({
     ifscCode:          z.string(),
   }),
   incomeDetails: z.object({
-    grossSalary:     z.number().min(0),
-    hra_received:    z.number().min(0).default(0),
-    professionalTax: z.number().min(0).default(0),
-    tdsDeducted:     z.number().min(0),
-    interestIncome:  z.number().min(0).default(0),
-    otherIncome:     z.number().min(0).default(0),
+    // Salary breakdown matching Form 16 Part B — grossSalary is derived
+    // server-side from these four fields, not accepted as direct input.
+    basicSalary:      z.number().min(0),
+    hra_received:     z.number().min(0).default(0),
+    specialAllowance: z.number().min(0).default(0),
+    bonus:            z.number().min(0).default(0),
+    professionalTax:  z.number().min(0).default(0),
+    tdsDeducted:      z.number().min(0),
+    interestIncome:   z.number().min(0).default(0),
+    otherIncome:      z.number().min(0).default(0),
   }),
   deductions: z.object({
     sec80C:           z.number().min(0).default(0),

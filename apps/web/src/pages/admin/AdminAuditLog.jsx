@@ -155,7 +155,7 @@ export default function AdminAuditLog() {
         style={{ marginBottom: 16, borderRadius: 8 }}
       />
 
-      <Card bordered={false} style={{ borderRadius: 10 }}>
+      <Card variant="borderless" style={{ borderRadius: 10 }}>
         <div
           style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}
         >

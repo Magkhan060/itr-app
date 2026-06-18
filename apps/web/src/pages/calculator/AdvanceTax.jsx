@@ -9,6 +9,7 @@ import {
   ClockCircleOutlined, ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import { computeAdvanceTax } from "../../services/tax.service.js";
+import PageHeader from "../../components/PageHeader.jsx";
 
 const { Title, Text } = Typography;
 const { Option }      = Select;
@@ -97,13 +98,7 @@ export default function AdvanceTax() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <CalendarOutlined style={{ fontSize: 28, color: "#1677ff" }} />
-        <div>
-          <Title level={3} style={{ margin: 0 }}>Advance Tax Calculator</Title>
-          <Text type="secondary">FY 2025-26 — u/s 207 to 219 of Income Tax Act</Text>
-        </div>
-      </div>
+      <PageHeader icon={<CalendarOutlined />} title="Advance Tax Calculator" subtitle="FY 2025-26 — u/s 207 to 219 of Income Tax Act" />
 
       <Alert
         message="Advance tax must be paid if your net tax liability (after TDS) exceeds ₹10,000 in a financial year."
@@ -113,7 +108,7 @@ export default function AdvanceTax() {
       <Row gutter={[24, 24]}>
         {/* Input */}
         <Col xs={24} lg={9}>
-          <Card bordered={false} style={{ borderRadius: 10 }}
+          <Card variant="borderless" style={{ borderRadius: 10 }}
             title="Income Details"
           >
             <Form form={form} layout="vertical" onFinish={onFinish} size="large">
@@ -185,7 +180,7 @@ export default function AdvanceTax() {
                   { title: "Net Advance Tax Due",  value: result.netTaxDue,         color: "#ff4d4f" },
                 ].map(({ title, value, color }) => (
                   <Col span={8} key={title}>
-                    <Card bordered={false} style={{ borderRadius: 10, textAlign: "center" }}>
+                    <Card variant="borderless" style={{ borderRadius: 10, textAlign: "center" }}>
                       <Statistic
                         title={title}
                         value={value}
@@ -208,7 +203,7 @@ export default function AdvanceTax() {
 
               {result.applicable && (
                 <Card
-                  bordered={false}
+                  variant="borderless"
                   style={{ borderRadius: 10 }}
                   title={
                     <Space>
@@ -258,7 +253,7 @@ export default function AdvanceTax() {
           )}
 
           {!result && !loading && (
-            <Card bordered={false} style={{ borderRadius: 10, textAlign: "center", padding: 60 }}>
+            <Card variant="borderless" style={{ borderRadius: 10, textAlign: "center", padding: 60 }}>
               <CalendarOutlined style={{ fontSize: 48, color: "#d9d9d9" }} />
               <div style={{ marginTop: 16 }}>
                 <Text type="secondary">

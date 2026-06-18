@@ -2,13 +2,14 @@ import React from "react";
 import { Tabs, Typography, Space, Tag } from "antd";
 import {
   DashboardOutlined, TeamOutlined, ControlOutlined, AuditOutlined,
-  FileTextOutlined,
+  FileTextOutlined, CrownOutlined,
 } from "@ant-design/icons";
 import AdminDashboard from "./AdminDashboard.jsx";
 import AdminUsers     from "./AdminUsers.jsx";
 import AdminFlags     from "./AdminFlags.jsx";
 import AdminAuditLog  from "./AdminAuditLog.jsx";
 import Dashboard      from "../dashboard/Dashboard.jsx";
+import PageHeader     from "../../components/PageHeader.jsx";
 
 const { Title } = Typography;
 
@@ -45,10 +46,12 @@ const TABS = [
 export default function AdminLayout() {
   return (
     <div>
-      <div style={{ marginBottom: 20, display: "flex", alignItems: "baseline", gap: 12 }}>
-        <Title level={3} style={{ margin: 0 }}>Admin Panel</Title>
-        <Tag color="gold">Platform Management</Tag>
-      </div>
+      <PageHeader
+        icon={<CrownOutlined />}
+        color="#faad14"
+        title="Admin Panel"
+        subtitle={<Tag color="gold">Platform Management</Tag>}
+      />
       <Tabs defaultActiveKey="dashboard" items={TABS} size="large" />
     </div>
   );

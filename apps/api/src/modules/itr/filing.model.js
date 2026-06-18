@@ -28,9 +28,12 @@ const itr1DataSchema = new mongoose.Schema({
   bankAccountEncrypted: { type: String },   // AES-256-CBC encrypted
   ifscCode:             { type: String },
 
-  // Income
-  grossSalary:        { type: Number, default: 0 },
+  // Income — salary breakdown matching Form 16 Part B
+  basicSalary:        { type: Number, default: 0 },
   hra_received:       { type: Number, default: 0 },
+  specialAllowance:   { type: Number, default: 0 },
+  bonus:              { type: Number, default: 0 },
+  grossSalary:        { type: Number, default: 0 },  // derived: sum of the four fields above, computed server-side on submit
   professionalTax:    { type: Number, default: 0 },
   tdsDeducted:        { type: Number, default: 0 },
   interestIncome:     { type: Number, default: 0 },

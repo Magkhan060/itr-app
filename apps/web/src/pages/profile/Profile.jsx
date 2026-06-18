@@ -1,32 +1,24 @@
 import React, { useState, useEffect } from "react";
 import {
   Row, Col, Card, Typography, Descriptions, Tag,
-  Upload, Button, Table, Alert, message, Popconfirm,
-  Spin, Progress, Divider, Space, Badge, Form, Select,
+  Button, Table, Alert, message, Popconfirm,
+  Divider, Space, Badge,
 } from "antd";
 import {
-  UserOutlined, UploadOutlined, FileTextOutlined,
-  DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined,
-  InboxOutlined, FilePdfOutlined,
+  UserOutlined, FileTextOutlined, DeleteOutlined,
+  CheckCircleOutlined, CloseCircleOutlined, FilePdfOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useAuthStore } from "../../store/index.js";
-import { uploadDocument, getMyDocuments, deleteDocument } from "../../services/document.service.js";
-import useFeature from "../../hooks/useFeature.js";
+import { getMyDocuments, deleteDocument } from "../../services/document.service.js";
+import PageHeader from "../../components/PageHeader.jsx";
 
 const { Title, Text } = Typography;
-const { Dragger }     = Upload;
-
-const fmt = (n) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })
-    .format(n || 0);
 
 export default function Profile() {
-  const { user }         = useAuthStore();
-  const form16Enabled    = useFeature("FORM_16_PARSER");
+  const { user } = useAuthStore();
   const [documents, setDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
-  const [uploading, setUploading]     = useState(false);
-  const [parsedResult, setParsedResult] = useState(null);
 
   const fetchDocuments = async () => {
     setDocsLoading(true);
@@ -39,31 +31,6 @@ export default function Profile() {
   };
 
   useEffect(() => { fetchDocuments(); }, []);
-
-  // Add state for selected doc type
-const [docType, setDocType] = useState("form16");
-
-// Replace handleUpload
-  const handleUpload = async ({ file }) => {
-    setUploading(true);
-    setParsedResult(null);
-    try {
-      const formData = new FormData();
-      formData.append("document", file);
-      formData.append("type", docType);
-      formData.append("financialYear", "2025-26");
-      const res = await uploadDocument(formData);
-      message.success(`${docType === "form16" ? "Form 16" : "Form 26AS"} uploaded and parsed!`);
-      setParsedResult({ type: docType, ...res.data?.parsedData });
-      fetchDocuments();
-    } catch (err) {
-      message.error(err.message || "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-    return false;
-  };
-
 
   const handleDelete = async (id) => {
     try {
@@ -135,19 +102,13 @@ const [docType, setDocType] = useState("form16");
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <UserOutlined style={{ fontSize: 28, color: "#1677ff" }} />
-        <div>
-          <Title level={3} style={{ margin: 0 }}>My Profile</Title>
-          <Text type="secondary">Account details and document vault</Text>
-        </div>
-      </div>
+      <PageHeader icon={<UserOutlined />} title="My Profile" subtitle="Account details and document vault" />
 
       <Row gutter={[24, 24]}>
         {/* ── Profile Details ─────────────────────────── */}
-        <Col xs={24} lg={10}>
+        <Col xs={24} lg={8}>
           <Card
-            bordered={false}
+            variant="borderless"
             style={{ borderRadius: 10 }}
             title={
               <Space>
@@ -209,114 +170,9 @@ const [docType, setDocType] = useState("form16");
         </Col>
 
         {/* ── Document Vault ──────────────────────────── */}
-        <Col xs={24} lg={14}>
-          {form16Enabled && (
-            <Card
-              bordered={false}
-              style={{ borderRadius: 10, marginBottom: 16 }}
-              title={
-                <Space>
-                  <UploadOutlined />
-                  <span>Upload Form 16</span>
-                </Space>
-              }
-            >
-              <Alert
-                message="Upload your Form 16 (Part A & B) PDF to auto-fill your ITR-1 income details."
-                type="info"
-                showIcon
-                style={{ marginBottom: 16, borderRadius: 8 }}
-              />
-
-              <Form.Item label="Document Type" style={{ marginBottom: 12 }}>
-              <Select value={docType} onChange={setDocType} style={{ width: "100%" }}>
-                <Select.Option value="form16">Form 16 (Salary TDS Certificate)</Select.Option>
-                <Select.Option value="form26as">Form 26AS (Tax Credit Statement)</Select.Option>
-                <Select.Option value="ais">AIS (Annual Information Statement)</Select.Option>
-                <Select.Option value="other">Other Document</Select.Option>
-              </Select>
-            </Form.Item>                       
-
-              <Dragger
-                name="document"
-                accept=".pdf"
-                multiple={false}
-                beforeUpload={(file) => {
-                  handleUpload({ file });
-                  return false;
-                }}
-                showUploadList={false}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <div className="py-4">
-                    <Spin size="large" />
-                    <p className="mt-3">Uploading and parsing Form 16...</p>
-                  </div>
-                ) : (
-                  <>
-                    <p className="ant-upload-drag-icon">
-                      <InboxOutlined style={{ color: "#1677ff" }} />
-                    </p>
-                    <p className="ant-upload-text">
-                      Click or drag Form 16 PDF here
-                    </p>
-                    <p className="ant-upload-hint">
-                      PDF only · Max 5MB · FY 2025-26
-                    </p>
-                  </>
-                )}
-              </Dragger>
-
-              {/* Parsed Result Preview */}
-              {parsedResult && (
-                <div style={{ marginTop: 16 }}>
-                  <Divider orientation="left">
-                    <Space>
-                      <CheckCircleOutlined style={{ color: "#52c41a" }} />
-                      <Text strong>Parsed Data</Text>
-                      <Tag color="success">
-                        {parsedResult.confidence}% confidence
-                      </Tag>
-                    </Space>
-                  </Divider>
-                  <Progress
-                    percent={parsedResult.confidence}
-                    strokeColor={parsedResult.confidence > 70 ? "#52c41a" : "#faad14"}
-                    style={{ marginBottom: 12 }}
-                  />
-                  <Descriptions column={2} size="small" bordered>
-                    {[
-                      ["Employer",       parsedResult.employerName],
-                      ["Employer TAN",   parsedResult.employerTAN],
-                      ["Employee PAN",   parsedResult.employeePAN],
-                      ["Financial Year", parsedResult.financialYear],
-                      ["Gross Salary",   parsedResult.grossSalary   ? fmt(parsedResult.grossSalary)   : null],
-                      ["Basic Salary",   parsedResult.basicSalary   ? fmt(parsedResult.basicSalary)   : null],
-                      ["HRA Received",   parsedResult.hraReceived   ? fmt(parsedResult.hraReceived)   : null],
-                      ["TDS Deducted",   parsedResult.tdsDeducted   ? fmt(parsedResult.tdsDeducted)   : null],
-                    ]
-                      .filter(([, v]) => v)
-                      .map(([label, value]) => (
-                        <Descriptions.Item key={label} label={label}>
-                          <Text strong>{value}</Text>
-                        </Descriptions.Item>
-                      ))}
-                  </Descriptions>
-                  <Alert
-                    style={{ marginTop: 12, borderRadius: 8 }}
-                    type="success"
-                    message="Go to ITR-1 Filing to use these values. Auto-fill coming soon!"
-                    showIcon
-                  />
-                </div>
-              )}
-            </Card>
-          )}
-
-          {/* Document List */}
+        <Col xs={24} lg={16}>
           <Card
-            bordered={false}
+            variant="borderless"
             style={{ borderRadius: 10 }}
             title={
               <Space>
@@ -326,12 +182,19 @@ const [docType, setDocType] = useState("form16");
               </Space>
             }
           >
+            <Alert
+              message="Upload Form 16, 26AS, or AIS from the File ITR page — uploaded documents appear here for your records."
+              type="info"
+              icon={<InfoCircleOutlined />}
+              showIcon
+              style={{ marginBottom: 16, borderRadius: 8 }}
+            />
             <Table
               dataSource={documents}
               columns={docColumns}
               rowKey="_id"
               loading={docsLoading}
-              pagination={{ pageSize: 5 }}
+              pagination={{ pageSize: 8 }}
               size="small"
               locale={{ emptyText: "No documents uploaded yet" }}
             />

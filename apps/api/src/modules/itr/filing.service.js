@@ -40,10 +40,22 @@ const withDecryptedPII = (filing) => {
   return { ...plain, itr1Data: decryptPII(plain.itr1Data) };
 };
 
+// Gross salary is derived from the Form 16 Part B breakdown rather than entered
+// directly — computed once here so every downstream consumer (XML generator,
+// approval summary, dashboards) can keep reading itr1Data.grossSalary unchanged.
+const computeGrossSalary = (incomeDetails) =>
+  (incomeDetails.basicSalary      || 0) +
+  (incomeDetails.hra_received     || 0) +
+  (incomeDetails.specialAllowance || 0) +
+  (incomeDetails.bonus            || 0);
+
 // ── Service functions ──────────────────────────────────────────────────────
 
 export const saveDraft = async (userId, { itrType, assessmentYear, step, data }) => {
-  const filter = { userId, itrType, assessmentYear };
+  // caClientId: null is required here — without it, this could match (and silently
+  // overwrite) a CA-prepared client filing, since client filings share the same
+  // userId as the CA who prepared them (see resolveOwnerUserId in ca-firm.service.js).
+  const filter = { userId, itrType, assessmentYear, caClientId: null };
 
   const update = {
     $set: {
@@ -63,7 +75,7 @@ export const saveDraft = async (userId, { itrType, assessmentYear, step, data })
 
 export const submitITR1 = async (userId, { personalInfo, incomeDetails, deductions, selectedRegime }) => {
   // Recompute tax server-side — never trust client tax values
-  const grossIncome = incomeDetails.grossSalary || 0;
+  const grossIncome = computeGrossSalary(incomeDetails);
   const otherIncome = (incomeDetails.interestIncome || 0) + (incomeDetails.otherIncome || 0);
 
   const taxResult = compareRegimes({
@@ -80,15 +92,18 @@ export const submitITR1 = async (userId, { personalInfo, incomeDetails, deductio
 
   const ackNo = `ITR1${Date.now()}${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 
+  // caClientId: null — see saveDraft() above for why this guard is required.
   const filter = {
     userId,
     itrType:        "ITR-1",
     assessmentYear: CURRENT_AY,
+    caClientId:     null,
   };
 
   const rawItr1Data = {
     ...personalInfo,
     ...incomeDetails,
+    grossSalary: grossIncome,
     ...deductions,
     selectedRegime,
     taxComputation: selectedTax,
@@ -115,7 +130,9 @@ export const submitITR1 = async (userId, { personalInfo, incomeDetails, deductio
 };
 
 export const getMyFilings = async (userId) => {
-  const filings = await Filing.find({ userId }).sort({ createdAt: -1 }).lean();
+  // caClientId: null excludes filings the user prepared as a CA for their clients —
+  // "my filings" means personal self-filed returns only.
+  const filings = await Filing.find({ userId, caClientId: null }).sort({ createdAt: -1 }).lean();
   return filings.map((f) => ({ ...f, itr1Data: decryptPII(f.itr1Data) }));
 };
 
@@ -138,7 +155,7 @@ export const saveDraftForClient = async (caId, clientId, { itrType, assessmentYe
 };
 
 export const submitITR1ForClient = async (caId, clientId, { personalInfo, incomeDetails, deductions, selectedRegime }, actingUserId = caId) => {
-  const grossIncome = incomeDetails.grossSalary || 0;
+  const grossIncome = computeGrossSalary(incomeDetails);
   const otherIncome = (incomeDetails.interestIncome || 0) + (incomeDetails.otherIncome || 0);
 
   const taxResult   = compareRegimes({
@@ -149,7 +166,7 @@ export const submitITR1ForClient = async (caId, clientId, { personalInfo, income
   const selectedTax = taxResult[selectedRegime];
   const ackNo       = `ITR1CA${Date.now()}${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 
-  const rawItr1Data = { ...personalInfo, ...incomeDetails, ...deductions, selectedRegime, taxComputation: selectedTax };
+  const rawItr1Data = { ...personalInfo, ...incomeDetails, grossSalary: grossIncome, ...deductions, selectedRegime, taxComputation: selectedTax };
 
   const filing = await Filing.findOneAndUpdate(
     { userId: caId, caClientId: clientId, itrType: "ITR-1", assessmentYear: CURRENT_AY },

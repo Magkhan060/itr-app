@@ -1,3 +1,5 @@
+import { COLORS } from "./src/theme/tokens.js";
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
@@ -7,10 +9,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: "#1677ff",  // Match ANTD primary blue
-        success: "#52c41a",
-        warning: "#faad14",
-        danger:  "#ff4d4f",
+        primary: COLORS.primary,  // Shared with ConfigProvider — see src/theme/tokens.js
+        success: COLORS.success,
+        warning: COLORS.warning,
+        danger:  COLORS.danger,
+      },
+      fontFamily: {
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
       },
     },
   },

@@ -14,6 +14,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../../store/index.js";
 import { getMyFilings, getFilingById } from "../../../services/filing.service.js";
 import { generateEVC, validateEVC, submitReturn, downloadXML } from "../../../services/efiling.service.js";
+import PageHeader from "../../../components/PageHeader.jsx";
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -572,17 +573,16 @@ export default function EFilingPage() {
   // ── Main flow ─────────────────────────────────────────────────────────────
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <SafetyCertificateOutlined style={{ fontSize: 28, color: "#1677ff" }} />
-        <div>
-          <Title level={3} style={{ margin: 0 }}>e-File ITR-1</Title>
+      <PageHeader
+        icon={<SafetyCertificateOutlined />}
+        title="e-File ITR-1"
+        subtitle={
           <Text type="secondary">
             Submit to Income Tax Department · AY {filing.assessmentYear} ·{" "}
             <Text code>{filing.itr1Data?.pan}</Text>
           </Text>
-        </div>
-      </div>
+        }
+      />
 
       {/* Steps indicator */}
       <Card variant="borderless" style={{ borderRadius: 10, marginBottom: 24 }}>

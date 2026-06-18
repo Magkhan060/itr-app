@@ -4,7 +4,7 @@ import {
   Table, Alert, Statistic, Divider, Popconfirm, message, Tooltip,
 } from "antd";
 import {
-  ArrowLeftOutlined, EditOutlined, FileTextOutlined,
+  EditOutlined, FileTextOutlined,
   SendOutlined, CheckCircleOutlined, FileDoneOutlined,
   ClockCircleOutlined, WhatsAppOutlined, MailOutlined,
   SafetyCertificateOutlined,
@@ -12,6 +12,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "../../../store/index.js";
 import { getClient, sendApproval } from "../../../services/ca.service.js";
+import PageHeader from "../../../components/PageHeader.jsx";
 
 const { Title, Text } = Typography;
 
@@ -98,42 +99,41 @@ export default function ClientWorkspace() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/dashboard")}>Back</Button>
-          <div>
-            <Title level={3} style={{ margin: 0 }}>{client?.fullName}</Title>
-            <Space size={4}>
-              <Text code>{client?.pan}</Text>
-              {client?.email && <Text type="secondary" style={{ fontSize: 12 }}>{client.email}</Text>}
-            </Space>
-          </div>
-        </div>
-        <Space>
-          {canWrite && (
-            <Button icon={<EditOutlined />} onClick={() => navigate(`/ca/clients/${clientId}/edit`)}>Edit Client</Button>
-          )}
-          {/* Hide the filing button once the return is verified/e-filed — no edits allowed */}
-          {canWrite && (!latestFiling || latestFiling.status === "draft") && (
-            <Button
-              type="primary"
-              icon={<FileTextOutlined />}
-              onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}
-            >
-              {latestFiling?.status === "draft" ? "Continue Filing" : "Start ITR-1"}
-            </Button>
-          )}
-          {canWrite && latestFiling?.status === "submitted" && (
-            <Button
-              icon={<FileTextOutlined />}
-              onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}
-            >
-              Edit Filing
-            </Button>
-          )}
-        </Space>
-      </div>
+      <PageHeader
+        onBack={() => navigate("/dashboard")}
+        title={client?.fullName}
+        subtitle={
+          <Space size={4}>
+            <Text code>{client?.pan}</Text>
+            {client?.email && <Text type="secondary" style={{ fontSize: 12 }}>{client.email}</Text>}
+          </Space>
+        }
+        extra={
+          <Space>
+            {canWrite && (
+              <Button icon={<EditOutlined />} onClick={() => navigate(`/ca/clients/${clientId}/edit`)}>Edit Client</Button>
+            )}
+            {/* Hide the filing button once the return is verified/e-filed — no edits allowed */}
+            {canWrite && (!latestFiling || latestFiling.status === "draft") && (
+              <Button
+                type="primary"
+                icon={<FileTextOutlined />}
+                onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}
+              >
+                {latestFiling?.status === "draft" ? "Continue Filing" : "Start ITR-1"}
+              </Button>
+            )}
+            {canWrite && latestFiling?.status === "submitted" && (
+              <Button
+                icon={<FileTextOutlined />}
+                onClick={() => navigate(`/ca/clients/${clientId}/itr1`)}
+              >
+                Edit Filing
+              </Button>
+            )}
+          </Space>
+        }
+      />
 
       <Row gutter={[16, 16]}>
         {/* Left: Client info */}

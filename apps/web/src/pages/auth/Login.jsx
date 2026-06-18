@@ -13,10 +13,10 @@ import { login } from "../../services/auth.service.js";
 const { Title, Text } = Typography;
 
 const FEATURES = [
-  { icon: <AuditOutlined />,            text: "File ITR-1 through ITR-7 online"         },
-  { icon: <SafetyCertificateOutlined />, text: "PAN & Aadhaar encrypted at rest"         },
-  { icon: <CloudServerOutlined />,       text: "Form 16 & 26AS auto-parse"               },
-  { icon: <FileDoneOutlined />,          text: "Old vs New regime instant comparison"     },
+  { icon: <AuditOutlined />,            text: "File your ITR-1 online — built for CAs and individuals" },
+  { icon: <SafetyCertificateOutlined />, text: "PAN & Aadhaar encrypted at rest (AES-256)"  },
+  { icon: <CloudServerOutlined />,       text: "Form 16 upload, parsed and pre-filled"      },
+  { icon: <FileDoneOutlined />,          text: "Old vs New regime instant comparison"        },
 ];
 
 export default function Login() {
@@ -54,12 +54,40 @@ export default function Login() {
           justifyContent: "center",
           padding: "60px 56px",
           color: "#fff",
+          position: "relative",
+          overflow: "hidden",
         }}
         className="hidden lg:flex"
       >
-        <div style={{ marginBottom: 48 }}>
-          <FileDoneOutlined style={{ fontSize: 48, color: "#fff", opacity: 0.9 }} />
-          <Title level={2} style={{ color: "#fff", marginTop: 16, marginBottom: 4 }}>
+        {/* Decorative glow — adds depth without needing an image asset */}
+        <div
+          style={{
+            position: "absolute", top: -120, right: -120, zIndex: 0,
+            width: 360, height: 360, borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute", bottom: -160, left: -100, zIndex: 0,
+            width: 320, height: 320, borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)",
+          }}
+        />
+
+        <div style={{ marginBottom: 48, position: "relative", zIndex: 1 }}>
+          <div
+            style={{
+              width: 56, height: 56, borderRadius: 14,
+              background: "rgba(255,255,255,0.15)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              marginBottom: 20,
+            }}
+          >
+            <FileDoneOutlined style={{ fontSize: 28, color: "#fff" }} />
+          </div>
+          <Title level={2} style={{ color: "#fff", marginTop: 0, marginBottom: 4 }}>
             ITR Filing Portal
           </Title>
           <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16 }}>
@@ -67,7 +95,7 @@ export default function Login() {
           </Text>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 48 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 48, position: "relative", zIndex: 1 }}>
           {FEATURES.map(({ icon, text }) => (
             <div key={text} style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div
@@ -91,6 +119,8 @@ export default function Login() {
             borderRadius: 10,
             background: "rgba(255,255,255,0.1)",
             border: "1px solid rgba(255,255,255,0.2)",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>Assessment Year</Text>
@@ -196,7 +226,7 @@ export default function Login() {
 
           <div style={{ textAlign: "center", marginTop: 32 }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Data encrypted · Compliant with IT Act 2000
+              AES-256 encrypted · Compliant with IT Act 2000
             </Text>
           </div>
         </div>

@@ -114,11 +114,25 @@ export default function AppLayout() {
             padding: "18px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)",
           }}
         >
-          <FileDoneOutlined style={{ fontSize: 22, color: "#1677ff", flexShrink: 0 }} />
+          <div
+            style={{
+              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+              background: "linear-gradient(135deg, #1677ff, #0958d9)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 2px 6px rgba(22, 119, 255, 0.4)",
+            }}
+          >
+            <FileDoneOutlined style={{ fontSize: 18, color: "#fff" }} />
+          </div>
           {!collapsed && (
-            <Text strong style={{ color: "#fff", marginLeft: 10, fontSize: 15, whiteSpace: "nowrap" }}>
-              ITR Filing
-            </Text>
+            <div style={{ marginLeft: 10, lineHeight: 1.25 }}>
+              <Text strong style={{ color: "#fff", fontSize: 15, whiteSpace: "nowrap", display: "block" }}>
+                ITR Filing
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, whiteSpace: "nowrap" }}>
+                Tax made simple
+              </Text>
+            </div>
           )}
         </div>
 

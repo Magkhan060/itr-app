@@ -1,10 +1,8 @@
 import React from "react";
-import { Card, Button, Typography } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { Card } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import ClientForm from "./ClientForm.jsx";
-
-const { Title, Text } = Typography;
+import PageHeader from "../../../components/PageHeader.jsx";
 
 export default function AddEditClient() {
   const { clientId } = useParams();
@@ -13,13 +11,11 @@ export default function AddEditClient() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Back</Button>
-        <div>
-          <Title level={3} style={{ margin: 0 }}>{isEdit ? "Edit Client" : "Add New Client"}</Title>
-          <Text type="secondary">Client details will be used to pre-fill their ITR form</Text>
-        </div>
-      </div>
+      <PageHeader
+        onBack={() => navigate(-1)}
+        title={isEdit ? "Edit Client" : "Add New Client"}
+        subtitle="Client details will be used to pre-fill their ITR form"
+      />
 
       <Card variant="borderless" style={{ borderRadius: 10 }}>
         <ClientForm

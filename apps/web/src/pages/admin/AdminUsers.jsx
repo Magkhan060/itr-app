@@ -2,12 +2,12 @@ import React, { useEffect, useState } from "react";
 import {
   Table, Tag, Button, Input, Space, Select,
   Typography, Popconfirm, message, Card, Row, Col,
-  Drawer, Avatar, Descriptions, Badge, Divider,
+  Drawer, Avatar, Descriptions, Badge, Divider, Alert, Tooltip,
 } from "antd";
 import {
   SearchOutlined, StopOutlined, CheckOutlined,
   UserOutlined, MailOutlined, PhoneOutlined,
-  CalendarOutlined, CrownOutlined,
+  CalendarOutlined, CrownOutlined, TeamOutlined, EyeOutlined,
 } from "@ant-design/icons";
 import { getAllUsers, updateUserRole, toggleUserActive } from "../../services/admin.service.js";
 import { useAuthStore } from "../../store/index.js";
@@ -15,6 +15,23 @@ import { useAuthStore } from "../../store/index.js";
 const { Text } = Typography;
 
 const AVATAR_COLORS = ["#1677ff", "#52c41a", "#fa8c16", "#722ed1", "#eb2f96", "#13c2c2"];
+
+const CA_ROLES = ["ca_admin", "ca_staff", "ca_readonly"];
+const CA_ROLE_LABEL = {
+  ca_admin:    "CA Admin",
+  ca_staff:    "Team Member",
+  ca_readonly: "Read-Only",
+};
+const CA_ROLE_COLOR = {
+  ca_admin:    "gold",
+  ca_staff:    "blue",
+  ca_readonly: "default",
+};
+const CA_ROLE_ICON = {
+  ca_admin:    <CrownOutlined />,
+  ca_staff:    <TeamOutlined />,
+  ca_readonly: <EyeOutlined />,
+};
 
 const initials = (name) =>
   name ? name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() : "?";
@@ -95,19 +112,26 @@ export default function AdminUsers() {
     {
       title:  "Role",
       key:    "role",
-      render: (_, r) => (
-        <Select
-          value={r.role}
-          size="small"
-          style={{ width: 100 }}
-          disabled={r._id === currentUser?.id}
-          onChange={(role) => handleRoleChange(r._id, role)}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Select.Option value="taxpayer">Taxpayer</Select.Option>
-          <Select.Option value="platform_admin">Admin</Select.Option>
-        </Select>
-      ),
+      render: (_, r) =>
+        CA_ROLES.includes(r.role) ? (
+          <Tooltip title="Managed via CA Portal → Team tab">
+            <Tag color={CA_ROLE_COLOR[r.role]} icon={CA_ROLE_ICON[r.role]}>
+              {CA_ROLE_LABEL[r.role]}
+            </Tag>
+          </Tooltip>
+        ) : (
+          <Select
+            value={r.role}
+            size="small"
+            style={{ width: 100 }}
+            disabled={r._id === currentUser?.id}
+            onChange={(role) => handleRoleChange(r._id, role)}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Select.Option value="taxpayer">Taxpayer</Select.Option>
+            <Select.Option value="platform_admin">Admin</Select.Option>
+          </Select>
+        ),
     },
     {
       title:  "Status",
@@ -153,7 +177,7 @@ export default function AdminUsers() {
 
   return (
     <>
-      <Card bordered={false} style={{ borderRadius: 10 }}>
+      <Card variant="borderless" style={{ borderRadius: 10 }}>
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col flex={1}>
             <Input
@@ -249,6 +273,11 @@ export default function AdminUsers() {
                 {drawerUser.role === "platform_admin" && (
                   <Tag color="gold" icon={<CrownOutlined />} style={{ marginLeft: 8 }}>Admin</Tag>
                 )}
+                {CA_ROLES.includes(drawerUser.role) && (
+                  <Tag color={CA_ROLE_COLOR[drawerUser.role]} icon={CA_ROLE_ICON[drawerUser.role]} style={{ marginLeft: 8 }}>
+                    {CA_ROLE_LABEL[drawerUser.role]}
+                  </Tag>
+                )}
               </div>
             </div>
 
@@ -280,21 +309,33 @@ export default function AdminUsers() {
             {drawerUser._id !== currentUser?.id && (
               <>
                 <Divider />
-                <div style={{ marginBottom: 8 }}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>Change Role</Text>
-                </div>
-                <Select
-                  value={drawerUser.role}
-                  style={{ width: "100%" }}
-                  onChange={(role) => handleRoleChange(drawerUser._id, role)}
-                >
-                  <Select.Option value="taxpayer">
-                    <Space><UserOutlined /> Taxpayer</Space>
-                  </Select.Option>
-                  <Select.Option value="platform_admin">
-                    <Space><CrownOutlined /> Platform Admin</Space>
-                  </Select.Option>
-                </Select>
+                {CA_ROLES.includes(drawerUser.role) ? (
+                  <Alert
+                    type="info"
+                    showIcon
+                    message="CA team member"
+                    description="This user's role is managed from the CA Portal's Team tab by their firm's CA Admin, not from here."
+                    style={{ borderRadius: 8 }}
+                  />
+                ) : (
+                  <>
+                    <div style={{ marginBottom: 8 }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>Change Role</Text>
+                    </div>
+                    <Select
+                      value={drawerUser.role}
+                      style={{ width: "100%" }}
+                      onChange={(role) => handleRoleChange(drawerUser._id, role)}
+                    >
+                      <Select.Option value="taxpayer">
+                        <Space><UserOutlined /> Taxpayer</Space>
+                      </Select.Option>
+                      <Select.Option value="platform_admin">
+                        <Space><CrownOutlined /> Platform Admin</Space>
+                      </Select.Option>
+                    </Select>
+                  </>
+                )}
               </>
             )}
 

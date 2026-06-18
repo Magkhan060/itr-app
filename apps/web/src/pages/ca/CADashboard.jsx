@@ -23,6 +23,8 @@ import {
   listFirmMembers, inviteFirmMember, revokeInvite, updateMemberRole, toggleMemberActive,
 } from "../../services/ca.service.js";
 import ClientForm from "./clients/ClientForm.jsx";
+import TaxpayerDashboard from "../dashboard/Dashboard.jsx";
+import PageHeader from "../../components/PageHeader.jsx";
 import { COMPLIANCE_CALENDAR_AY_2026_27 } from "@itr-app/shared-types";
 
 const { Title, Text } = Typography;
@@ -700,6 +702,13 @@ export default function CADashboard() {
       ),
     },
     {
+      key:   "file-itr",
+      label: <Space><FileTextOutlined />File ITR</Space>,
+      // Every CA role is also an individual taxpayer with their own personal
+      // return to file — reuse the same taxpayer dashboard (no forked copy).
+      children: <TaxpayerDashboard />,
+    },
+    {
       key:   "team",
       label: <Space><UserAddOutlined />Team</Space>,
       children: <CATeamPanel isAdmin={isAdmin} currentUserId={user?.id} />,
@@ -716,14 +725,12 @@ export default function CADashboard() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <AuditOutlined style={{ fontSize: 28, color: "#722ed1" }} />
-        <div>
-          <Title level={3} style={{ margin: 0 }}>CA Dashboard</Title>
-          <Text type="secondary">{user?.caFirmName || "Tax Practice"} · FY 2025-26</Text>
-        </div>
-      </div>
+      <PageHeader
+        icon={<AuditOutlined />}
+        color="#722ed1"
+        title="CA Dashboard"
+        subtitle={`${user?.caFirmName || "Tax Practice"} · FY 2025-26`}
+      />
 
       <Tabs defaultActiveKey="clients" items={tabItems} />
 

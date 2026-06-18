@@ -11,6 +11,7 @@ import {
 import { compareRegimes } from "../../services/tax.service.js";
 import { DEDUCTION_LIMITS } from "@itr-app/shared-types";
 import { useAuthStore } from "../../store/index.js";
+import PageHeader from "../../components/PageHeader.jsx";
 
 const { Title, Text } = Typography;
 const { Panel }       = Collapse;
@@ -98,13 +99,7 @@ export default function TaxCalculator() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <CalculatorOutlined style={{ fontSize: 28, color: "#1677ff" }} />
-        <div>
-          <Title level={3} style={{ margin: 0 }}>Tax Calculator</Title>
-          <Text type="secondary">FY 2025-26 | AY 2026-27 — Old vs New Regime</Text>
-        </div>
-      </div>
+      <PageHeader icon={<CalculatorOutlined />} title="Tax Calculator" subtitle="FY 2025-26 | AY 2026-27 — Old vs New Regime" />
 
       <Row gutter={[24, 24]}>
         {/* ── Input Form ─────────────────────────────── */}
@@ -117,7 +112,7 @@ export default function TaxCalculator() {
           >
             <Card
               title="Income Details"
-              bordered={false}
+              variant="borderless"
               style={{ borderRadius: 10, marginBottom: 16 }}
             >
               <Form.Item
@@ -157,7 +152,7 @@ export default function TaxCalculator() {
 
             {/* Deductions (old regime) */}
             <Collapse
-              bordered={false}
+              variant="borderless"
               style={{ borderRadius: 10, marginBottom: 16, background: "#fff" }}
             >
               <Panel
@@ -224,7 +219,7 @@ export default function TaxCalculator() {
         {/* ── Results ────────────────────────────────── */}
         <Col xs={24} lg={14}>
           {loading && (
-            <Card bordered={false} style={{ borderRadius: 10, textAlign: "center", padding: 40 }}>
+            <Card variant="borderless" style={{ borderRadius: 10, textAlign: "center", padding: 40 }}>
               <Spin size="large" tip="Computing tax..." />
             </Card>
           )}
@@ -237,7 +232,7 @@ export default function TaxCalculator() {
             <>
               {/* Winner Banner */}
               <Card
-                bordered={false}
+                variant="borderless"
                 style={{
                   borderRadius: 10,
                   marginBottom: 16,
@@ -279,7 +274,7 @@ export default function TaxCalculator() {
                 {["old", "new"].map((regime) => (
                   <Col span={12} key={regime}>
                     <Card
-                      bordered={false}
+                      variant="borderless"
                       style={{
                         borderRadius: 10,
                         outline: result.betterRegime === regime
@@ -313,7 +308,7 @@ export default function TaxCalculator() {
               {/* Detailed Comparison Table */}
               <Card
                 title="Detailed Breakdown"
-                bordered={false}
+                variant="borderless"
                 style={{ borderRadius: 10 }}
               >
                 <Table
@@ -329,7 +324,7 @@ export default function TaxCalculator() {
 
           {!result && !loading && !error && (
             <Card
-              bordered={false}
+              variant="borderless"
               style={{ borderRadius: 10, textAlign: "center", padding: 60 }}
             >
               <CalculatorOutlined style={{ fontSize: 48, color: "#d9d9d9" }} />

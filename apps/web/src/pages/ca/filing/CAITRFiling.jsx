@@ -15,6 +15,7 @@ import { useAuthStore } from "../../../store/index.js";
 import { getClient, saveDraftForClient, submitITR1ForClient, sendApproval } from "../../../services/ca.service.js";
 import { compareRegimes } from "../../../services/tax.service.js";
 import { DEDUCTION_LIMITS, METRO_CITIES } from "@itr-app/shared-types";
+import PageHeader from "../../../components/PageHeader.jsx";
 
 const { Title, Text } = Typography;
 const { Option }      = Select;
@@ -31,7 +32,7 @@ const STEPS = [
 
 const STEP_FIELDS = [
   ["fullName","pan","dateOfBirth","gender","residentialStatus","city","employerName","employerTAN","bankAccountNo","ifscCode"],
-  ["grossSalary","hra_received","tdsDeducted","interestIncome","otherIncome"],
+  ["basicSalary","hra_received","specialAllowance","bonus","tdsDeducted","interestIncome","otherIncome"],
   ["sec80C","sec80CCD1B","sec80D_self","sec80D_parents","homeLoanInterest","hra_exempt","lta","sec80TTA_TTB","sec80G"],
 ];
 
@@ -99,8 +100,13 @@ export default function CAITRFiling() {
     setError(null);
     try {
       const s1 = allStepData.step1 || {};
+      const grossIncome =
+        (s1.basicSalary      || 0) +
+        (s1.hra_received     || 0) +
+        (s1.specialAllowance || 0) +
+        (s1.bonus            || 0);
       const payload = {
-        grossIncome: s1.grossSalary || 0,
+        grossIncome,
         otherIncome: (s1.interestIncome || 0) + (s1.otherIncome || 0),
         dateOfBirth: (allStepData.step0?.dateOfBirth?.format?.("YYYY-MM-DD")) || client?.dateOfBirth,
         deductions: {
@@ -147,11 +153,13 @@ export default function CAITRFiling() {
           ifscCode:          s0.ifscCode,
         },
         incomeDetails: {
-          grossSalary:    s1.grossSalary    || 0,
-          hra_received:   s1.hra_received   || 0,
-          tdsDeducted:    s1.tdsDeducted    || 0,
-          interestIncome: s1.interestIncome || 0,
-          otherIncome:    s1.otherIncome    || 0,
+          basicSalary:      s1.basicSalary      || 0,
+          hra_received:     s1.hra_received     || 0,
+          specialAllowance: s1.specialAllowance || 0,
+          bonus:            s1.bonus            || 0,
+          tdsDeducted:      s1.tdsDeducted      || 0,
+          interestIncome:   s1.interestIncome   || 0,
+          otherIncome:      s1.otherIncome      || 0,
         },
         deductions: {
           sec80C:           s2.sec80C           || 0,
@@ -280,8 +288,33 @@ export default function CAITRFiling() {
     // Step 1 — Income
     <Row gutter={16} key="1">
       {[
-        { name: "grossSalary",    label: "Gross Salary (₹)",              required: true },
-        { name: "hra_received",   label: "HRA Received (₹)",              required: false },
+        { name: "basicSalary",      label: "Basic Salary (₹)",              required: true },
+        { name: "hra_received",     label: "HRA Received (₹)",              required: false },
+        { name: "specialAllowance", label: "Special Allowance (₹)",         required: false },
+        { name: "bonus",            label: "Bonus (₹)",                     required: false },
+      ].map(({ name, label, required }) => (
+        <Col xs={24} sm={12} key={name}>
+          <Form.Item name={name} label={label} rules={required ? [{ required: true }] : []}>
+            <InputNumber style={{ width: "100%" }} min={0} formatter={(v) => `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")} parser={(v) => v.replace(/₹\s?|(,*)/g, "")} placeholder="0" />
+          </Form.Item>
+        </Col>
+      ))}
+      <Col xs={24}>
+        <Form.Item shouldUpdate noStyle>
+          {() => {
+            const v = form.getFieldsValue(["basicSalary", "hra_received", "specialAllowance", "bonus"]);
+            const total = (v.basicSalary || 0) + (v.hra_received || 0) + (v.specialAllowance || 0) + (v.bonus || 0);
+            return (
+              <Alert
+                type="success" showIcon
+                message={<Text>Total Gross Salary: <Text strong>{fmt(total)}</Text></Text>}
+                style={{ marginBottom: 16, borderRadius: 8 }}
+              />
+            );
+          }}
+        </Form.Item>
+      </Col>
+      {[
         { name: "tdsDeducted",    label: "TDS Already Deducted (₹)",      required: true },
         { name: "interestIncome", label: "Interest Income (FD/Savings) (₹)", required: false },
         { name: "otherIncome",    label: "Other Income (₹)",              required: false },
@@ -320,17 +353,17 @@ export default function CAITRFiling() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(`/ca/clients/${clientId}`)}>Back</Button>
-        <div>
-          <Title level={3} style={{ margin: 0 }}>ITR-1 — {client.fullName}</Title>
+      <PageHeader
+        onBack={() => navigate(`/ca/clients/${clientId}`)}
+        title={`ITR-1 — ${client.fullName}`}
+        subtitle={
           <Space size={4}>
             <Tag icon={<TeamOutlined />} color="purple">CA Filing</Tag>
             <Text code style={{ fontSize: 11 }}>{client.pan}</Text>
             <Text type="secondary" style={{ fontSize: 12 }}>FY 2025-26 | AY 2026-27</Text>
           </Space>
-        </div>
-      </div>
+        }
+      />
 
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16, borderRadius: 8 }} closable onClose={() => setError(null)} />}
 

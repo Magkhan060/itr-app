@@ -10,6 +10,7 @@ import {
 } from "@ant-design/icons";
 import { getMyFilings } from "../../services/filing.service.js";
 import api from "../../services/api.js";
+import PageHeader from "../../components/PageHeader.jsx";
 
 const { Title, Text } = Typography;
 const { Option }      = Select;
@@ -57,16 +58,10 @@ export default function RefundTracker() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <BankOutlined style={{ fontSize: 28, color: "#1677ff" }} />
-        <div>
-          <Title level={3} style={{ margin: 0 }}>Refund Tracker</Title>
-          <Text type="secondary">Track your income tax refund status</Text>
-        </div>
-      </div>
+      <PageHeader icon={<BankOutlined />} title="Refund Tracker" subtitle="Track your income tax refund status" />
 
       {/* Filing selector */}
-      <Card bordered={false} style={{ borderRadius: 10, marginBottom: 16 }}>
+      <Card variant="borderless" style={{ borderRadius: 10, marginBottom: 16 }}>
         <Row align="middle" gutter={16}>
           <Col>
             <Text strong>Select Filing:</Text>
@@ -94,13 +89,13 @@ export default function RefundTracker() {
       </Card>
 
       {loading && (
-        <Card bordered={false} style={{ borderRadius: 10, textAlign: "center", padding: 40 }}>
+        <Card variant="borderless" style={{ borderRadius: 10, textAlign: "center", padding: 40 }}>
           <Spin size="large" tip="Fetching refund status..." />
         </Card>
       )}
 
       {!loading && !fetching && filings.length === 0 && (
-        <Card bordered={false} style={{ borderRadius: 10 }}>
+        <Card variant="borderless" style={{ borderRadius: 10 }}>
           <Empty description="No submitted filings found. File an ITR first." />
         </Card>
       )}
@@ -119,7 +114,7 @@ export default function RefundTracker() {
               {/* Refund summary */}
               <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
                 <Col xs={24} sm={8}>
-                  <Card bordered={false} style={{ borderRadius: 10, textAlign: "center" }}>
+                  <Card variant="borderless" style={{ borderRadius: 10, textAlign: "center" }}>
                     <Statistic
                       title="Refund Amount"
                       value={status.refundAmount}
@@ -130,7 +125,7 @@ export default function RefundTracker() {
                   </Card>
                 </Col>
                 <Col xs={24} sm={8}>
-                  <Card bordered={false} style={{ borderRadius: 10, textAlign: "center" }}>
+                  <Card variant="borderless" style={{ borderRadius: 10, textAlign: "center" }}>
                     <Statistic
                       title="Processing Progress"
                       value={status.progress}
@@ -146,7 +141,7 @@ export default function RefundTracker() {
                   </Card>
                 </Col>
                 <Col xs={24} sm={8}>
-                  <Card bordered={false} style={{ borderRadius: 10, textAlign: "center" }}>
+                  <Card variant="borderless" style={{ borderRadius: 10, textAlign: "center" }}>
                     <Statistic
                       title="Days Since Filing"
                       value={status.daysSinceSubmission}
@@ -159,7 +154,7 @@ export default function RefundTracker() {
 
               {/* Current stage */}
               <Card
-                bordered={false}
+                variant="borderless"
                 style={{ borderRadius: 10, marginBottom: 16 }}
                 title="Current Status"
               >
@@ -206,7 +201,7 @@ export default function RefundTracker() {
 
               {/* Stage timeline */}
               <Card
-                bordered={false}
+                variant="borderless"
                 style={{ borderRadius: 10 }}
                 title="Processing Timeline"
               >

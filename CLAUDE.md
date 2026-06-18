@@ -197,7 +197,8 @@ Full 4-step wizard (Personal Info → Income → Deductions → Tax Summary + Su
 - Bank account number (encrypted at rest), IFSC code
 
 **Income fields:**
-- Gross salary, HRA received, professional tax u/s 16(iii), TDS deducted
+- Salary breakdown (Form 16 Part B style): basic salary, HRA received, special allowance, bonus — `grossSalary` is computed server-side as their sum, not entered directly
+- Professional tax u/s 16(iii), TDS deducted
 - Interest income (FD/savings), other income
 
 **Deductions (Chapter VI-A):**
@@ -383,13 +384,13 @@ Client-submitted tax values are always discarded. The backend recomputes tax via
 
 ### Immediate (blocking go-live)
 1. ~~Aadhaar Verhoeff validation~~ — Done. `packages/shared-types/validators/aadhaar.js` exports `isValidAadhaarChecksum()` + `AADHAAR_REGEX`. Wired into the backend Zod schema (`filing.validator.js`, via `.refine()`) and both frontend forms that collect Aadhaar (`ITR1Filing.jsx`, `AddEditClient.jsx`, via a custom AntD form rule). Unit tests in `apps/api/src/modules/itr/aadhaar.validator.test.js` cover the known-valid vector, altered check digit, every single-digit mutation, and adjacent transposition.
-2. **Feature flag seed script** — `reset-flags.js` uses `$setOnInsert` and won't update flags already in MongoDB. Need a `force-update-flags.js` that uses `$set` unconditionally to activate `CA_PORTAL` and `EFILING_DIRECT` on existing databases.
+2. ~~Feature flag seed script~~ — Already solved by `reset-flags.js`, which uses `$set` unconditionally (verified). Two distinct, both-correct mechanisms exist: `seedFlags()` (`features.service.js`, runs on every server boot) uses `$setOnInsert` so it never clobbers an admin's manual toggles on restart; `reset-flags.js` (run manually, on purpose) uses `$set` to force every flag back to its `flags.js` default — including `CA_PORTAL`/`EFILING_DIRECT`. Run with `node apps/api/src/scripts/reset-flags.js`.
 3. ~~Gmail credentials~~ — Done, real SMTP confirmed working. **Twilio SMS credentials** still outstanding — set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` in `apps/api/.env` for real SMS (currently mock-mode logs to console).
 
 ### Near Term
 4. **ITD ERI/ASP registration** — Apply on incometax.gov.in as an e-Return Intermediary. Once approved, set `ITD_API_BASE_URL` and `ITD_API_KEY` in `.env` to enable Phase 3 direct API filing.
 5. **Multiple TDS entries** — Currently one employer per filing. Need to support multiple Form 16s (job change mid-year). The `tdsEntries` array schema exists in the model but the form only captures a single employer.
-6. **Allowance breakdown in form** — Form uses single `grossSalary` field. For high-income filers with complex allowances (like the PDF example with separate Salary + HRA + AALLOWANCE), a detailed breakdown matching Form 16 Part B would be more accurate.
+6. ~~Allowance breakdown in form~~ — Done. `itr1Data` now stores `basicSalary`/`specialAllowance`/`bonus` alongside the existing `hra_received`; `grossSalary` is computed server-side from the sum (`computeGrossSalary()` in `filing.service.js`) rather than entered directly, so every existing consumer (XML generator, approval summary, dashboards) keeps reading `itr1Data.grossSalary` unchanged. Both `ITR1Filing.jsx` and `CAITRFiling.jsx` show a live-computed "Total Gross Salary" subtotal as the breakdown fields are filled in. While implementing this, fixed two related issues: (1) the Form 16 upload widget had been removed from `Profile.jsx` with no replacement entry point — moved into `ITR1Filing.jsx`'s Form 16 drawer, which now supports upload + a "Use These Values" pre-fill button (the parser already extracted `basicSalary`/`specialAllowance`/`bonus`/`hraReceived` — it was just never wired to anything); (2) `filing.validator.test.js`'s 7 long-standing failures were this exact feature already test-driven but never implemented — all pass now.
 7. **26AS XML import** — Parse 26AS to pre-fill TDS entries, interest income, and capital gains. Endpoint and parser scaffolding to be added.
 8. ~~CA Profile page~~ — Done. CA Dashboard → Settings tab; firm name/ICAI number/ITD credentials now live on `CAFirm` (see Role & Permission Model above).
 

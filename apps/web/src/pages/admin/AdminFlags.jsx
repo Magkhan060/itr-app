@@ -115,7 +115,7 @@ export default function AdminFlags() {
       {Object.entries(grouped).map(([category, categoryFlags]) => (
         <Card
           key={category}
-          bordered={false}
+          variant="borderless"
           style={{ borderRadius: 10, marginBottom: 16 }}
           title={
             <Space>
