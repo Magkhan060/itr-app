@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Row, Col, Card, Statistic, Tag, Typography,
   Table, Button, Alert, Space, Empty, Tooltip,
+  theme as antdTheme,
 } from "antd";
 import {
   FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined,
@@ -86,6 +87,7 @@ const QUICK_ACTIONS = [
 export default function Dashboard() {
   const { user }   = useAuthStore();
   const navigate   = useNavigate();
+  const { token }  = antdTheme.useToken();
   const liveFlags  = useFlagsStore((s) => s.flags);
   const hasFetched = Object.keys(liveFlags).length > 0;
 
@@ -311,11 +313,11 @@ export default function Dashboard() {
             <div
               onClick={() => navigate("/filing/itr1")}
               style={{
-                background:   "#fff",
+                background:   token.colorBgContainer,
                 borderRadius: 10,
                 padding:      "20px 16px",
                 cursor:       "pointer",
-                border:       "1px dashed #d9d9d9",
+                border:       `1px dashed ${token.colorBorder}`,
                 display:      "flex",
                 flexDirection:"column",
                 alignItems:   "center",

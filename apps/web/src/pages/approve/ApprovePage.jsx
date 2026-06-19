@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Card, Button, Typography, Spin, Alert, Result,
   Descriptions, Statistic, Row, Col, Input, Space, Tag, Divider, Table,
+  theme as antdTheme,
 } from "antd";
 import {
   CheckCircleOutlined, CloseCircleOutlined,
@@ -20,6 +21,7 @@ export default function ApprovePage() {
   const { token }          = useParams();
   const [searchParams]     = useSearchParams();
   const defaultAction      = searchParams.get("action"); // "approve" or "reject" from email link
+  const { token: themeToken } = antdTheme.useToken();
 
   const [summary, setSummary]     = useState(null);
   const [loading, setLoading]     = useState(true);
@@ -60,7 +62,7 @@ export default function ApprovePage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "100vh", background: themeToken.colorBgLayout, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Spin size="large" tip="Loading your ITR details…" />
       </div>
     );
@@ -68,7 +70,7 @@ export default function ApprovePage() {
 
   if (error) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "100vh", background: themeToken.colorBgLayout, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Card style={{ maxWidth: 480, borderRadius: 12, width: "90%" }}>
           <Result icon={<ExclamationCircleOutlined style={{ color: "#faad14" }} />} title="Link Invalid or Expired" subTitle={error} />
         </Card>
@@ -79,7 +81,7 @@ export default function ApprovePage() {
   // Already responded
   if (result?.alreadyDone) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "100vh", background: themeToken.colorBgLayout, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Card style={{ maxWidth: 480, borderRadius: 12, width: "90%" }}>
           <Result
             icon={
@@ -98,7 +100,7 @@ export default function ApprovePage() {
   // Success after responding
   if (result && !result.alreadyDone) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "100vh", background: themeToken.colorBgLayout, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Card style={{ maxWidth: 520, borderRadius: 12, width: "90%" }}>
           <Result
             status={result.status === "approved" ? "success" : "warning"}
@@ -140,11 +142,11 @@ export default function ApprovePage() {
   ].filter(Boolean) : [];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f2f5", padding: "32px 16px" }}>
+    <div style={{ minHeight: "100vh", background: themeToken.colorBgLayout, padding: "32px 16px" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <FileDoneOutlined style={{ fontSize: 40, color: "#1677ff" }} />
+          <FileDoneOutlined style={{ fontSize: 40, color: themeToken.colorPrimary }} />
           <Title level={2} style={{ marginTop: 10, marginBottom: 4 }}>Review Your ITR-1</Title>
           <Text type="secondary">FY 2025-26 | AY {summary.assessmentYear}</Text>
         </div>
@@ -161,7 +163,7 @@ export default function ApprovePage() {
         {/* Assessee & Employer */}
         <Card
           variant="borderless"
-          style={{ borderRadius: 10, marginBottom: 16, border: "1px solid #e8e8e8" }}
+          style={{ borderRadius: 10, marginBottom: 16 }}
           title={<Space><FileTextOutlined /><span>Assessee Details</span></Space>}
           size="small"
         >
@@ -182,36 +184,36 @@ export default function ApprovePage() {
         {/* Income computation */}
         <Card
           variant="borderless"
-          style={{ borderRadius: 10, marginBottom: 16, border: "1px solid #e8e8e8" }}
+          style={{ borderRadius: 10, marginBottom: 16 }}
           title={<Space><SafetyCertificateOutlined /><span>Computation of Total Income</span></Space>}
           size="small"
         >
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <tbody>
               {incomeRows.map((row, i) => (
-                <tr key={i} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                  <td style={{ padding: "6px 4px", paddingLeft: row.indent ? 20 : 4, color: row.bold ? "#000" : "#595959" }}>
+                <tr key={i} style={{ borderBottom: `1px solid ${themeToken.colorBorderSecondary}` }}>
+                  <td style={{ padding: "6px 4px", paddingLeft: row.indent ? 20 : 4, color: row.bold ? themeToken.colorText : themeToken.colorTextSecondary }}>
                     {row.bold ? <strong>{row.label}</strong> : row.label}
                   </td>
-                  <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: row.bold ? 600 : 400, color: row.amount < 0 ? "#fa541c" : "#000" }}>
+                  <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: row.bold ? 600 : 400, color: row.amount < 0 ? "#fa541c" : themeToken.colorText }}>
                     {row.amount < 0 ? `(${fmt(-row.amount)})` : fmt(row.amount)}
                   </td>
                 </tr>
               ))}
               {deductionRows.length > 0 && (
                 <>
-                  <tr><td colSpan={2} style={{ padding: "8px 4px", fontWeight: 600, background: "#fafafa", fontSize: 12 }}>Less: Deductions (Chapter VI-A)</td></tr>
+                  <tr><td colSpan={2} style={{ padding: "8px 4px", fontWeight: 600, background: themeToken.colorFillTertiary, fontSize: 12 }}>Less: Deductions (Chapter VI-A)</td></tr>
                   {deductionRows.map((row, i) => (
-                    <tr key={`d${i}`} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                      <td style={{ padding: "6px 4px", paddingLeft: 20, color: "#595959" }}>{row.label}</td>
+                    <tr key={`d${i}`} style={{ borderBottom: `1px solid ${themeToken.colorBorderSecondary}` }}>
+                      <td style={{ padding: "6px 4px", paddingLeft: 20, color: themeToken.colorTextSecondary }}>{row.label}</td>
                       <td style={{ padding: "6px 4px", textAlign: "right", color: "#fa541c" }}>({fmt(row.amount)})</td>
                     </tr>
                   ))}
                 </>
               )}
-              <tr style={{ background: "#e6f4ff", borderTop: "2px solid #1677ff" }}>
+              <tr style={{ background: themeToken.colorPrimaryBg, borderTop: `2px solid ${themeToken.colorPrimary}` }}>
                 <td style={{ padding: "8px 4px", fontWeight: 700 }}>Total Taxable Income</td>
-                <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 700, fontSize: 15, color: "#1677ff" }}>{fmt(s.taxableIncome)}</td>
+                <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 700, fontSize: 15, color: themeToken.colorPrimary }}>{fmt(s.taxableIncome)}</td>
               </tr>
             </tbody>
           </table>
@@ -220,22 +222,22 @@ export default function ApprovePage() {
         {/* Tax computation & refund */}
         <Card
           variant="borderless"
-          style={{ borderRadius: 10, marginBottom: 20, border: "1px solid #e8e8e8" }}
+          style={{ borderRadius: 10, marginBottom: 20 }}
           title={<Space><BankOutlined /><span>Tax & Refund Summary</span></Space>}
           size="small"
         >
           <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
             {[
               { label: "Tax Payable",     value: s.totalTax,   color: "#fa541c" },
-              { label: "TDS Deducted",    value: s.tdsDeducted, color: "#1677ff" },
+              { label: "TDS Deducted",    value: s.tdsDeducted, color: themeToken.colorPrimary },
               { label: isRefund ? "Refund Due" : "Balance Payable",
                 value: isRefund ? s.refundDue : s.balPayable,
                 color: isRefund ? "#52c41a" : "#fa541c" },
               { label: "Effective Rate",  value: `${s.effectiveRate}%`, color: "#722ed1", isText: true },
             ].map(({ label, value, color, isText }) => (
               <Col xs={12} sm={6} key={label}>
-                <div style={{ textAlign: "center", padding: "12px 4px", borderRadius: 8, background: "#fafafa" }}>
-                  <div style={{ fontSize: 11, color: "#8c8c8c", marginBottom: 4 }}>{label}</div>
+                <div style={{ textAlign: "center", padding: "12px 4px", borderRadius: 8, background: themeToken.colorFillTertiary }}>
+                  <div style={{ fontSize: 11, color: themeToken.colorTextSecondary, marginBottom: 4 }}>{label}</div>
                   <div style={{ fontWeight: 700, fontSize: 16, color }}>
                     {isText ? value : fmt(value)}
                   </div>
@@ -255,7 +257,7 @@ export default function ApprovePage() {
 
         {/* Action buttons or confirm panel */}
         {!action ? (
-          <Card variant="borderless" style={{ borderRadius: 10, border: "1px solid #e8e8e8", textAlign: "center" }}>
+          <Card variant="borderless" style={{ borderRadius: 10, textAlign: "center" }}>
             <Paragraph style={{ marginBottom: 24 }}>
               Do you approve this ITR-1 filing to be submitted to the Income Tax Department on your behalf?
             </Paragraph>

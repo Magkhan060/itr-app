@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Tells Chrome/Edge this page manages its own light/dark styling (via
+         ANTD ConfigProvider), so the browser's heuristic auto-dark-mode for
+         web content doesn't kick in and selectively invert ANTD's
+         class-driven backgrounds (Card, Input) while leaving inline-styled
+         elements untouched — that mismatch is what caused black Cards/Inputs
+         with barely-visible text on Login/Register when the OS is in dark mode. -->
+    <meta name="color-scheme" content="light dark" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />

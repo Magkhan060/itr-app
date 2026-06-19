@@ -26,6 +26,15 @@ export const useFlagsStore = create((set) => ({
     set((state) => ({ flags: { ...state.flags, [key]: enabled } })),
 }));
 
+export const useThemeStore = create((set, get) => ({
+  mode: localStorage.getItem("itr_theme_mode") || "light",
+  toggleMode: () => {
+    const next = get().mode === "dark" ? "light" : "dark";
+    localStorage.setItem("itr_theme_mode", next);
+    set({ mode: next });
+  },
+}));
+
 export const useFilingStore = create((set) => ({
   currentITRType: null,
   filingData:     {},

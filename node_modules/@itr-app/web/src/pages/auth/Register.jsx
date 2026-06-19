@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Form, Input, Button, Card, Typography,
   DatePicker, Steps, message, Alert, Divider, Row, Col, Radio,
+  theme as antdTheme,
 } from "antd";
 import {
   UserOutlined, LockOutlined, MailOutlined,
@@ -16,6 +17,7 @@ const { Title, Text } = Typography;
 
 export default function Register() {
   const navigate = useNavigate();
+  const { token } = antdTheme.useToken();
   const { setToken, setUser } = useAuthStore();
   const [current, setCurrent]   = useState(0);
   const [role, setRole]         = useState("taxpayer");
@@ -76,7 +78,7 @@ export default function Register() {
 
   return (
     <div
-      style={{ minHeight: "100vh", background: "#f0f2f5" }}
+      style={{ minHeight: "100vh", background: token.colorBgLayout }}
       className="flex items-center justify-center py-8"
     >
       <Card
@@ -84,7 +86,7 @@ export default function Register() {
         styles={{ body: { padding: "40px" } }}
       >
         <div className="flex flex-col items-center mb-8">
-          <FileDoneOutlined style={{ fontSize: 36, color: "#1677ff" }} />
+          <FileDoneOutlined style={{ fontSize: 36, color: token.colorPrimary }} />
           <Title level={3} style={{ marginTop: 10, marginBottom: 4 }}>Create Your Account</Title>
           <Text type="secondary">ITR Filing Portal — FY 2025-26</Text>
         </div>
@@ -111,14 +113,14 @@ export default function Register() {
                     onClick={() => setRole("taxpayer")}
                     style={{
                       padding: 20, borderRadius: 10, cursor: "pointer", textAlign: "center",
-                      border: `2px solid ${role === "taxpayer" ? "#1677ff" : "#e8e8e8"}`,
-                      background: role === "taxpayer" ? "#e6f4ff" : "#fff",
+                      border: `2px solid ${role === "taxpayer" ? token.colorPrimary : token.colorBorderSecondary}`,
+                      background: role === "taxpayer" ? token.colorPrimaryBg : token.colorBgContainer,
                       transition: "all 0.2s",
                     }}
                   >
-                    <UserOutlined style={{ fontSize: 32, color: "#1677ff", marginBottom: 8, display: "block" }} />
+                    <UserOutlined style={{ fontSize: 32, color: token.colorPrimary, marginBottom: 8, display: "block" }} />
                     <div style={{ fontWeight: 600, marginBottom: 4 }}>Individual Taxpayer</div>
-                    <div style={{ color: "#8c8c8c", fontSize: 12 }}>File your own returns</div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>File your own returns</Text>
                   </div>
                 </Col>
                 <Col span={12}>
@@ -126,14 +128,14 @@ export default function Register() {
                     onClick={() => setRole("ca_admin")}
                     style={{
                       padding: 20, borderRadius: 10, cursor: "pointer", textAlign: "center",
-                      border: `2px solid ${role === "ca_admin" ? "#1677ff" : "#e8e8e8"}`,
-                      background: role === "ca_admin" ? "#e6f4ff" : "#fff",
+                      border: `2px solid ${role === "ca_admin" ? token.colorPrimary : token.colorBorderSecondary}`,
+                      background: role === "ca_admin" ? token.colorPrimaryBg : token.colorBgContainer,
                       transition: "all 0.2s",
                     }}
                   >
                     <AuditOutlined style={{ fontSize: 32, color: "#722ed1", marginBottom: 8, display: "block" }} />
                     <div style={{ fontWeight: 600, marginBottom: 4 }}>CA / Tax Professional</div>
-                    <div style={{ color: "#8c8c8c", fontSize: 12 }}>File returns for multiple clients</div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>File returns for multiple clients</Text>
                   </div>
                 </Col>
               </Row>

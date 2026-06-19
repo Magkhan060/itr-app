@@ -3,6 +3,7 @@ import {
   Card, Form, InputNumber, Select, Button, Row, Col,
   Typography, Divider, Table, Tag, Alert, Statistic,
   Collapse, DatePicker, Spin, Steps, Result,
+  theme as antdTheme,
 } from "antd";
 import {
   CalculatorOutlined, ArrowRightOutlined,
@@ -24,6 +25,7 @@ const pct = (n) => `${n}%`;
 
 export default function TaxCalculator() {
   const { user }         = useAuthStore();
+  const { token }        = antdTheme.useToken();
   const [form]           = Form.useForm();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -153,7 +155,7 @@ export default function TaxCalculator() {
             {/* Deductions (old regime) */}
             <Collapse
               variant="borderless"
-              style={{ borderRadius: 10, marginBottom: 16, background: "#fff" }}
+              style={{ borderRadius: 10, marginBottom: 16, background: token.colorBgContainer }}
             >
               <Panel
                 header={

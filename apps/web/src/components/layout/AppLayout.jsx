@@ -1,14 +1,15 @@
 import React, { useState } from "react";
 import {
   Layout, Menu, Avatar, Dropdown, Typography, Tag, Button, Breadcrumb,
+  theme as antdTheme,
 } from "antd";
 import {
   DashboardOutlined, UserOutlined, LogoutOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, FileDoneOutlined,
-  BellOutlined, CrownOutlined,
+  BellOutlined, CrownOutlined, SunOutlined, MoonOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet, Link } from "react-router-dom";
-import { useAuthStore, useFlagsStore } from "../../store/index.js";
+import { useAuthStore, useFlagsStore, useThemeStore } from "../../store/index.js";
 import { FLAGS } from "../../config/features.config.js";
 
 const { Header, Sider, Content, Footer } = Layout;
@@ -54,6 +55,8 @@ export default function AppLayout() {
   const location  = useLocation();
   const { user, logout } = useAuthStore();
   const liveFlags = useFlagsStore((s) => s.flags);
+  const { mode, toggleMode } = useThemeStore();
+  const { token } = antdTheme.useToken();
 
   const isEnabled = (key) =>
     Object.keys(liveFlags).length > 0
@@ -81,7 +84,7 @@ export default function AppLayout() {
       label: (
         <div style={{ padding: "4px 0 8px" }}>
           <div style={{ fontWeight: 600, fontSize: 13 }}>{user?.fullName}</div>
-          <div style={{ color: "#8c8c8c", fontSize: 11 }}>{user?.pan}</div>
+          <div style={{ color: token.colorTextSecondary, fontSize: 11 }}>{user?.pan}</div>
           {user?.role === "platform_admin" && (
             <Tag color="gold" icon={<CrownOutlined />} style={{ marginTop: 4, fontSize: 10 }}>
               Admin
@@ -186,7 +189,7 @@ export default function AppLayout() {
         <Header
           style={{
             position: "sticky", top: 0, zIndex: 99,
-            background: "#fff",
+            background: token.colorBgContainer,
             padding: "0 24px",
             display: "flex",
             alignItems: "center",
@@ -201,26 +204,33 @@ export default function AppLayout() {
               type="text"
               icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
               onClick={() => setCollapsed(!collapsed)}
-              style={{ color: "#595959" }}
+              style={{ color: token.colorTextSecondary }}
             />
             <Breadcrumb
-              items={[{ title: <Link to="/dashboard" style={{ color: "#8c8c8c", fontSize: 13 }}>Home</Link> }, ...crumbs]}
+              items={[{ title: <Link to="/dashboard" style={{ color: token.colorTextSecondary, fontSize: 13 }}>Home</Link> }, ...crumbs]}
               style={{ fontSize: 13 }}
             />
           </div>
 
-          {/* Right: bell + user avatar */}
+          {/* Right: theme toggle + bell + user avatar */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Button
               type="text"
+              icon={mode === "dark" ? <SunOutlined style={{ fontSize: 18 }} /> : <MoonOutlined style={{ fontSize: 18 }} />}
+              onClick={toggleMode}
+              title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              style={{ color: token.colorTextSecondary, width: 40, height: 40 }}
+            />
+
+            <Button
+              type="text"
               icon={<BellOutlined style={{ fontSize: 18 }} />}
-              style={{ color: "#595959", width: 40, height: 40 }}
+              style={{ color: token.colorTextSecondary, width: 40, height: 40 }}
             />
 
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow trigger={["click"]}>
               <div
                 style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "4px 8px", borderRadius: 8 }}
-                className="hover:bg-gray-50"
               >
                 <Avatar
                   size={34}
@@ -230,7 +240,7 @@ export default function AppLayout() {
                 </Avatar>
                 <div style={{ lineHeight: 1.3 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{user?.fullName}</div>
-                  <div style={{ color: "#8c8c8c", fontSize: 11 }}>
+                  <div style={{ color: token.colorTextSecondary, fontSize: 11 }}>
                     {user?.role === "platform_admin" ? "Admin" : user?.pan}
                   </div>
                 </div>
@@ -245,7 +255,7 @@ export default function AppLayout() {
         </Content>
 
         {/* Footer */}
-        <Footer style={{ textAlign: "center", background: "#f5f5f5", padding: "10px 24px" }}>
+        <Footer style={{ textAlign: "center", background: token.colorBgContainer, padding: "10px 24px" }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
             ITR Filing App © 2026 &nbsp;·&nbsp; FY 2025-26 &nbsp;·&nbsp; AY 2026-27 &nbsp;·&nbsp; All data encrypted &amp; secure
           </Text>

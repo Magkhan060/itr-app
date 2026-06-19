@@ -1,3 +1,5 @@
+import { theme as antdThemeApi } from "antd";
+
 // Single source of truth for the app's visual design tokens.
 // Imported by both the ANTD ConfigProvider (main.jsx) and Tailwind
 // (tailwind.config.js) so utility classes and ANTD components never drift
@@ -23,20 +25,40 @@ export const RADIUS = 10;
 export const FONT_FAMILY =
   "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
-export const antdTheme = {
-  token: {
-    colorPrimary:  COLORS.primary,
-    colorSuccess:  COLORS.success,
-    colorWarning:  COLORS.warning,
-    colorError:    COLORS.danger,
-    colorInfo:     COLORS.info,
-    borderRadius:  RADIUS,
-    fontFamily:    FONT_FAMILY,
-    colorBgLayout: "#f5f7fa",
-  },
-  components: {
-    Button: { borderRadius: 8, controlHeight: 38 },
-    Input:  { borderRadius: 8 },
-    Card:   { borderRadiusLG: RADIUS },
-  },
+export const sharedTokens = {
+  colorPrimary: COLORS.primary,
+  colorSuccess: COLORS.success,
+  colorWarning: COLORS.warning,
+  colorError:   COLORS.danger,
+  colorInfo:    COLORS.info,
+  borderRadius: RADIUS,
+  fontFamily:   FONT_FAMILY,
 };
+
+export const sharedComponents = {
+  Button: { borderRadius: 8, controlHeight: 38 },
+  Input:  { borderRadius: 8 },
+  Card:   { borderRadiusLG: RADIUS },
+};
+
+// Dark mode is a deliberate black/charcoal-gray palette, not ANTD's stock
+// dark-navy defaults — only colorBgLayout/colorBgContainer/colorBgElevated
+// are overridden; everything else (colorPrimary, etc.) inherits from
+// sharedTokens so the brand accent color stays identical in both modes.
+const darkOverrides = {
+  colorBgLayout:    "#000000",
+  colorBgContainer: "#141414",
+  colorBgElevated:  "#1f1f1f",
+  colorBorder:       "#303030",
+  colorBorderSecondary: "#262626",
+};
+
+export const getThemeConfig = (mode) => ({
+  algorithm: mode === "dark" ? antdThemeApi.darkAlgorithm : antdThemeApi.defaultAlgorithm,
+  token: mode === "dark" ? { ...sharedTokens, ...darkOverrides } : sharedTokens,
+  components: sharedComponents,
+});
+
+// Back-compat default export (light mode) for any code that hasn't switched
+// to getThemeConfig(mode) yet.
+export const antdTheme = getThemeConfig("light");

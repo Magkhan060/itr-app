@@ -110,7 +110,7 @@ function CASettingsPanel() {
       {/* ── Practice Details ─────────────────────────────────── */}
       <Card
         variant="borderless"
-        style={{ borderRadius: 10, border: "1px solid #f0f0f0", marginBottom: 20 }}
+        style={{ borderRadius: 10, marginBottom: 20 }}
         title={
           <Space>
             <SafetyCertificateOutlined style={{ color: "#722ed1" }} />
@@ -129,7 +129,7 @@ function CASettingsPanel() {
       {/* ── ITD ERI / ASP Credentials ───────────────────────── */}
       <Card
         variant="borderless"
-        style={{ borderRadius: 10, border: "1px solid #f0f0f0", marginBottom: 20 }}
+        style={{ borderRadius: 10, marginBottom: 20 }}
         title={
           <Space>
             <ApiOutlined style={{ color: "#1677ff" }} />
@@ -626,7 +626,7 @@ export default function CADashboard() {
               { label: "No Filing Yet",    value: noFiling,      icon: <FileTextOutlined />,           color: "#8c8c8c" },
             ].map(({ label, value, icon, color }) => (
               <Col xs={12} sm={8} lg={4} key={label}>
-                <Card variant="borderless" style={{ borderRadius: 10, border: "1px solid #f0f0f0" }}>
+                <Card variant="borderless" style={{ borderRadius: 10 }} hoverable>
                   <Statistic
                     title={<Text style={{ fontSize: 11 }}>{label}</Text>}
                     value={value}

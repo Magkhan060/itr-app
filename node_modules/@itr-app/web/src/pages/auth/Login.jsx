@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Form, Input, Button, Typography, message, Alert, Divider,
+  theme as antdTheme,
 } from "antd";
 import {
   UserOutlined, LockOutlined, FileDoneOutlined,
@@ -21,6 +22,7 @@ const FEATURES = [
 
 export default function Login() {
   const navigate  = useNavigate();
+  const { token } = antdTheme.useToken();
   const { setToken, setUser } = useAuthStore();
   const [loading, setLoading]   = useState(false);
   const [apiError, setApiError] = useState(null);
@@ -44,34 +46,36 @@ export default function Login() {
 
   return (
     <div style={{ minHeight: "100vh", display: "flex" }}>
-      {/* ── Left branded panel ───────────────────────── */}
+      {/* ── Left branded panel — same surface color as the right panel in
+          both light and dark mode, with the brand blue used only as an
+          accent (icons, badges) so the two halves read as one cohesive
+          page rather than a jarring static-blue / neutral-gray split. ── */}
       <div
         style={{
           flex: "0 0 45%",
-          background: "linear-gradient(135deg, #1677ff 0%, #003eb3 100%)",
-          display: "flex",
+          background: token.colorBgContainer,
+          borderRight: `1px solid ${token.colorBorderSecondary}`,
           flexDirection: "column",
           justifyContent: "center",
           padding: "60px 56px",
-          color: "#fff",
           position: "relative",
           overflow: "hidden",
         }}
         className="hidden lg:flex"
       >
-        {/* Decorative glow — adds depth without needing an image asset */}
+        {/* Decorative glow — subtle brand-color tint, adapts to theme via colorPrimary */}
         <div
           style={{
             position: "absolute", top: -120, right: -120, zIndex: 0,
             width: 360, height: 360, borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%)",
+            background: `radial-gradient(circle, ${token.colorPrimaryBg} 0%, transparent 70%)`,
           }}
         />
         <div
           style={{
             position: "absolute", bottom: -160, left: -100, zIndex: 0,
             width: 320, height: 320, borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)",
+            background: `radial-gradient(circle, ${token.colorPrimaryBg} 0%, transparent 70%)`,
           }}
         />
 
@@ -79,18 +83,18 @@ export default function Login() {
           <div
             style={{
               width: 56, height: 56, borderRadius: 14,
-              background: "rgba(255,255,255,0.15)",
-              border: "1px solid rgba(255,255,255,0.25)",
+              background: token.colorPrimaryBg,
+              border: `1px solid ${token.colorPrimaryBorder}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               marginBottom: 20,
             }}
           >
-            <FileDoneOutlined style={{ fontSize: 28, color: "#fff" }} />
+            <FileDoneOutlined style={{ fontSize: 28, color: token.colorPrimary }} />
           </div>
-          <Title level={2} style={{ color: "#fff", marginTop: 0, marginBottom: 4 }}>
+          <Title level={2} style={{ marginTop: 0, marginBottom: 4 }}>
             ITR Filing Portal
           </Title>
-          <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16 }}>
+          <Text type="secondary" style={{ fontSize: 16 }}>
             Secure, simple Indian tax filing — FY 2025-26
           </Text>
         </div>
@@ -101,14 +105,15 @@ export default function Login() {
               <div
                 style={{
                   width: 36, height: 36, borderRadius: 8,
-                  background: "rgba(255,255,255,0.15)",
+                  background: token.colorPrimaryBg,
+                  color: token.colorPrimary,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 18, flexShrink: 0,
                 }}
               >
                 {icon}
               </div>
-              <Text style={{ color: "rgba(255,255,255,0.88)", fontSize: 15 }}>{text}</Text>
+              <Text style={{ fontSize: 15 }}>{text}</Text>
             </div>
           ))}
         </div>
@@ -117,16 +122,16 @@ export default function Login() {
           style={{
             padding: "16px 20px",
             borderRadius: 10,
-            background: "rgba(255,255,255,0.1)",
-            border: "1px solid rgba(255,255,255,0.2)",
+            background: token.colorFillTertiary,
+            border: `1px solid ${token.colorBorderSecondary}`,
             position: "relative",
             zIndex: 1,
           }}
         >
-          <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>Assessment Year</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>Assessment Year</Text>
           <div>
-            <Text strong style={{ color: "#fff", fontSize: 18 }}>AY 2026-27</Text>
-            <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, marginLeft: 10 }}>
+            <Text strong style={{ fontSize: 18 }}>AY 2026-27</Text>
+            <Text type="secondary" style={{ fontSize: 13, marginLeft: 10 }}>
               FY 2025-26
             </Text>
           </div>
@@ -140,14 +145,14 @@ export default function Login() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#f5f7fa",
+          background: token.colorBgContainer,
           padding: "40px 24px",
         }}
       >
         <div style={{ width: "100%", maxWidth: 400 }}>
           {/* Mobile-only logo */}
           <div className="flex flex-col items-center mb-8 lg:hidden">
-            <FileDoneOutlined style={{ fontSize: 36, color: "#1677ff" }} />
+            <FileDoneOutlined style={{ fontSize: 36, color: token.colorPrimary }} />
             <Title level={3} style={{ marginTop: 10, marginBottom: 2 }}>ITR Filing Portal</Title>
             <Text type="secondary">FY 2025-26 | AY 2026-27</Text>
           </div>
@@ -178,7 +183,7 @@ export default function Login() {
               ]}
             >
               <Input
-                prefix={<UserOutlined style={{ color: "#bfbfbf" }} />}
+                prefix={<UserOutlined style={{ color: token.colorTextTertiary }} />}
                 placeholder="ABCDE1234F"
                 maxLength={10}
                 style={{ borderRadius: 8 }}
@@ -192,7 +197,7 @@ export default function Login() {
               rules={[{ required: true, message: "Password is required" }]}
             >
               <Input.Password
-                prefix={<LockOutlined style={{ color: "#bfbfbf" }} />}
+                prefix={<LockOutlined style={{ color: token.colorTextTertiary }} />}
                 placeholder="Enter your password"
                 style={{ borderRadius: 8 }}
               />

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Card, Form, Input, Button, Typography,
   DatePicker, message, Alert, Spin, Result, Tag, Space,
+  theme as antdTheme,
 } from "antd";
 import {
   UserOutlined, LockOutlined, IdcardOutlined,
@@ -18,6 +19,7 @@ const ROLE_LABEL = { ca_staff: "Team Member", ca_readonly: "Read-Only Viewer" };
 export default function JoinFirm() {
   const { token } = useParams();
   const navigate   = useNavigate();
+  const { token: themeToken } = antdTheme.useToken();
   const { setToken, setUser } = useAuthStore();
   const [form] = Form.useForm();
 
@@ -57,7 +59,7 @@ export default function JoinFirm() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "100vh", background: themeToken.colorBgLayout, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Spin size="large" tip="Loading invite…" />
       </div>
     );
@@ -65,7 +67,7 @@ export default function JoinFirm() {
 
   if (error && !invite) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "100vh", background: themeToken.colorBgLayout, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Card style={{ maxWidth: 480, borderRadius: 12, width: "90%" }}>
           <Result status="error" title="Invite Link Invalid" subTitle={error} />
         </Card>
@@ -74,10 +76,10 @@ export default function JoinFirm() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f2f5" }} className="flex items-center justify-center py-8">
+    <div style={{ minHeight: "100vh", background: themeToken.colorBgLayout }} className="flex items-center justify-center py-8">
       <Card style={{ width: 540, borderRadius: 12 }} styles={{ body: { padding: "40px" } }}>
         <div className="flex flex-col items-center mb-8">
-          <FileDoneOutlined style={{ fontSize: 36, color: "#1677ff" }} />
+          <FileDoneOutlined style={{ fontSize: 36, color: themeToken.colorPrimary }} />
           <Title level={3} style={{ marginTop: 10, marginBottom: 4 }}>Join {invite.firmName || "the Firm"}</Title>
           <Space>
             <Text type="secondary">You've been invited as a</Text>
