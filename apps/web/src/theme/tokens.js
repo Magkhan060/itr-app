@@ -39,6 +39,12 @@ export const sharedComponents = {
   Button: { borderRadius: 8, controlHeight: 38 },
   Input:  { borderRadius: 8 },
   Card:   { borderRadiusLG: RADIUS },
+  // Slightly smaller than the 14px base — a touch more refined for the
+  // app's dense multi-field forms (ClientForm, ITR1/ITR2 wizards) without
+  // needing per-page overrides. Labels were never actually bold (ANTD's
+  // default Form label has no font-weight override at all); they just
+  // looked heavy next to size="large" inputs, which those forms no longer use.
+  Form: { labelFontSize: 13 },
 };
 
 // Dark mode is a deliberate black/charcoal-gray palette, not ANTD's stock

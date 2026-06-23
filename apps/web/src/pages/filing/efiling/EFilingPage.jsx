@@ -578,9 +578,10 @@ export default function EFilingPage() {
       <PageHeader
         icon={<SafetyCertificateOutlined />}
         title="e-File ITR-1"
+        period={`AY ${filing.assessmentYear}`}
         subtitle={
           <Text type="secondary">
-            Submit to Income Tax Department · AY {filing.assessmentYear} ·{" "}
+            Submit to Income Tax Department ·{" "}
             <Text code>{filing.itr1Data?.pan}</Text>
           </Text>
         }

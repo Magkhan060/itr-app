@@ -101,7 +101,7 @@ export default function TaxCalculator() {
 
   return (
     <div>
-      <PageHeader icon={<CalculatorOutlined />} title="Tax Calculator" subtitle="FY 2025-26 | AY 2026-27 — Old vs New Regime" />
+      <PageHeader icon={<CalculatorOutlined />} title="Tax Calculator" subtitle="Old vs New Regime comparison" period />
 
       <Row gutter={[24, 24]}>
         {/* ── Input Form ─────────────────────────────── */}

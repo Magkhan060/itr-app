@@ -21,6 +21,7 @@ import { saveDraft, submitITR1, downloadFilingXML } from "../../../services/fili
 import { getMyDocuments, uploadDocument } from "../../../services/document.service.js";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../../../components/PageHeader.jsx";
+import FormSectionTitle from "../../../components/FormSectionTitle.jsx";
 
 const { Dragger } = Upload;
 
@@ -477,7 +478,7 @@ export default function ITR1Filing() {
 
   const IncomeDetails = () => (
     <>
-      <Title level={5}>Salary Income</Title>
+      <FormSectionTitle first>Salary Income</FormSectionTitle>
       <Row gutter={16}>
         {SALARY_FIELDS.map(({ name, label, required, tip }) => (
           <Col xs={24} sm={12} key={name}>
@@ -527,8 +528,7 @@ export default function ITR1Filing() {
         ))}
       </Row>
 
-      <Divider />
-      <Title level={5}>Other Income</Title>
+      <FormSectionTitle>Other Income</FormSectionTitle>
       <Row gutter={16}>
         {OTHER_INCOME_FIELDS.map(({ name, label, tip }) => (
           <Col xs={24} sm={12} key={name}>
@@ -858,7 +858,8 @@ export default function ITR1Filing() {
       <PageHeader
         icon={<FileTextOutlined />}
         title="ITR-1 Filing — Sahaj"
-        subtitle="Salaried individuals | FY 2025-26 | AY 2026-27"
+        subtitle="Salaried individuals"
+        period
         extra={
           <Tooltip
             title={
@@ -889,7 +890,7 @@ export default function ITR1Filing() {
 
       {/* Step content */}
       <Card variant="borderless" style={{ borderRadius: 10, marginBottom: 16 }}>
-        <Form form={form} layout="vertical" size="large">
+        <Form form={form} layout="vertical">
           {stepContent[current]}
         </Form>
       </Card>

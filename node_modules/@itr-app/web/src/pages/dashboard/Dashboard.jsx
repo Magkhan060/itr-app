@@ -28,6 +28,10 @@ const STATUS_COLOR = {
   processed: "purple",
 };
 
+// Each action's icon keeps a fixed brand/semantic accent color — small icons
+// like these read fine on either a light or dark card. The background used
+// to be a per-action pastel hex (e.g. "#e6f4ff") that never changed with the
+// theme; that's gone now — see how `color` is consumed in the render below.
 const QUICK_ACTIONS = [
   {
     key:   "itr1",
@@ -36,7 +40,6 @@ const QUICK_ACTIONS = [
     desc:  "Salaried individuals — FY 2025-26",
     path:  "/filing/itr1",
     flag:  "ITR_1",
-    color: "#e6f4ff",
   },
   {
     key:   "calculator",
@@ -45,7 +48,6 @@ const QUICK_ACTIONS = [
     desc:  "Compare Old vs New regime instantly",
     path:  "/calculator",
     flag:  "REGIME_COMPARISON",
-    color: "#f6ffed",
   },
   {
     key:   "advance-tax",
@@ -54,7 +56,6 @@ const QUICK_ACTIONS = [
     desc:  "Quarterly advance tax computation",
     path:  "/advance-tax",
     flag:  "ADVANCE_TAX_CALC",
-    color: "#fff0f6",
   },
   {
     key:   "upload",
@@ -63,7 +64,6 @@ const QUICK_ACTIONS = [
     desc:  "Auto-parse salary & TDS details",
     path:  "/profile",
     flag:  "FORM_16_PARSER",
-    color: "#fff7e6",
   },
   {
     key:   "refund",
@@ -72,7 +72,6 @@ const QUICK_ACTIONS = [
     desc:  "Check your ITR refund status",
     path:  "/refund-tracker",
     flag:  "REFUND_TRACKER",
-    color: "#f9f0ff",
   },
   {
     key:   "efiling",
@@ -81,7 +80,6 @@ const QUICK_ACTIONS = [
     desc:  "Submit your ITR directly to the Income Tax Dept",
     path:  "/efiling",
     flag:  "EFILING_DIRECT",
-    color: "#e6fffb",
   },
 ];
 
@@ -387,18 +385,25 @@ export default function Dashboard() {
                 <div
                   onClick={() => navigate(action.path)}
                   style={{
-                    background:    action.color,
+                    background:    token.colorFillTertiary,
                     borderRadius:  10,
                     padding:       "20px 16px",
                     cursor:        "pointer",
-                    border:        "1px solid transparent",
+                    border:        `1px solid ${token.colorBorderSecondary}`,
                     transition:    "all 0.2s",
                   }}
-                  className="hover:shadow-md hover:border-blue-100"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = `0 2px 8px ${token.colorPrimaryBorder}`;
+                    e.currentTarget.style.borderColor = token.colorPrimaryBorder;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = "none";
+                    e.currentTarget.style.borderColor = token.colorBorderSecondary;
+                  }}
                 >
                   <div style={{ marginBottom: 10 }}>{action.icon}</div>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{action.title}</div>
-                  <div style={{ color: "#8c8c8c", fontSize: 12 }}>{action.desc}</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>{action.desc}</Text>
                 </div>
               </Col>
             );
@@ -421,9 +426,16 @@ export default function Dashboard() {
                 minHeight:    90,
                 transition:   "all 0.2s",
               }}
-              className="hover:border-blue-400 hover:bg-blue-50"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = token.colorPrimary;
+                e.currentTarget.style.background = token.colorFillTertiary;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = token.colorBorder;
+                e.currentTarget.style.background = token.colorBgContainer;
+              }}
             >
-              <PlusOutlined style={{ fontSize: 24, color: "#bfbfbf", marginBottom: 8 }} />
+              <PlusOutlined style={{ fontSize: 24, color: token.colorTextTertiary, marginBottom: 8 }} />
               <Text type="secondary" style={{ fontSize: 12, textAlign: "center" }}>
                 Start a new filing
               </Text>

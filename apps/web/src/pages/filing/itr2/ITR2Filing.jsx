@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Steps, Card, Button, Form, Input, InputNumber,
   Select, DatePicker, Row, Col, Typography,
-  Alert, Divider, Result, Tag, Space, Drawer,
+  Alert, Result, Tag, Space, Drawer,
   Tooltip, Spin, Grid, Upload, message, Radio,
   theme as antdTheme,
 } from "antd";
@@ -22,6 +22,7 @@ import { saveDraftITR2, submitITR2, downloadFilingXML } from "../../../services/
 import { getMyDocuments, uploadDocument } from "../../../services/document.service.js";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../../../components/PageHeader.jsx";
+import FormSectionTitle from "../../../components/FormSectionTitle.jsx";
 
 const { Dragger } = Upload;
 
@@ -445,7 +446,7 @@ export default function ITR2Filing() {
 
   const IncomeDetails = () => (
     <>
-      <Title level={5}>Salary Income</Title>
+      <FormSectionTitle first>Salary Income</FormSectionTitle>
       <Row gutter={16}>
         {SALARY_FIELDS.map(({ name, label, required }) => (
           <Col xs={24} sm={12} key={name}>
@@ -485,8 +486,7 @@ export default function ITR2Filing() {
         ))}
       </Row>
 
-      <Divider />
-      <Title level={5}>Other Income</Title>
+      <FormSectionTitle>Other Income</FormSectionTitle>
       <Row gutter={16}>
         {OTHER_INCOME_FIELDS.map(({ name, label }) => (
           <Col xs={24} sm={12} key={name}>
@@ -502,7 +502,7 @@ export default function ITR2Filing() {
   // ── Step 2: Property & Capital Gains ─────────────────────────
   const PropertyAndCapitalGains = () => (
     <>
-      <Title level={5}>House Property</Title>
+      <FormSectionTitle first>House Property</FormSectionTitle>
       <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
         Add each property you own. Self-occupied property interest is only deductible under the Old Regime (capped at ₹2,00,000 combined); let-out property income/loss applies under both regimes.
       </Text>
@@ -569,8 +569,7 @@ export default function ITR2Filing() {
         )}
       </Form.List>
 
-      <Divider />
-      <Title level={5}>Equity Capital Gains</Title>
+      <FormSectionTitle>Equity Capital Gains</FormSectionTitle>
       <Alert
         type="info"
         showIcon
@@ -820,7 +819,8 @@ export default function ITR2Filing() {
       <PageHeader
         icon={<FileTextOutlined />}
         title="ITR-2 Filing"
-        subtitle="Capital gains & multiple house properties | FY 2025-26 | AY 2026-27"
+        subtitle="Capital gains & multiple house properties"
+        period
         extra={
           <Tooltip
             title={
@@ -849,7 +849,7 @@ export default function ITR2Filing() {
       </Card>
 
       <Card variant="borderless" style={{ borderRadius: 10, marginBottom: 16 }}>
-        <Form form={form} layout="vertical" size="large">
+        <Form form={form} layout="vertical">
           {stepContent[current]}
         </Form>
       </Card>

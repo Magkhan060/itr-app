@@ -358,11 +358,11 @@ export default function CAITRFiling() {
       <PageHeader
         onBack={() => navigate(`/ca/clients/${clientId}`)}
         title={`ITR-1 — ${client.fullName}`}
+        period
         subtitle={
           <Space size={4}>
             <Tag icon={<TeamOutlined />} color="purple">CA Filing</Tag>
             <Text code style={{ fontSize: 11 }}>{client.pan}</Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>FY 2025-26 | AY 2026-27</Text>
           </Space>
         }
       />
@@ -374,7 +374,7 @@ export default function CAITRFiling() {
       </Card>
 
       <Card variant="borderless" style={{ borderRadius: 10, marginBottom: 16 }}>
-        <Form form={form} layout="vertical" size="large">
+        <Form form={form} layout="vertical">
           {stepContent[current]}
         </Form>
       </Card>

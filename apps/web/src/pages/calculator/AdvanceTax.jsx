@@ -100,7 +100,7 @@ export default function AdvanceTax() {
 
   return (
     <div>
-      <PageHeader icon={<CalendarOutlined />} title="Advance Tax Calculator" subtitle="FY 2025-26 — u/s 207 to 219 of Income Tax Act" />
+      <PageHeader icon={<CalendarOutlined />} title="Advance Tax Calculator" subtitle="u/s 207 to 219 of Income Tax Act" period />
 
       <Alert
         message="Advance tax must be paid if your net tax liability (after TDS) exceeds ₹10,000 in a financial year."

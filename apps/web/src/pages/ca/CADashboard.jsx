@@ -729,7 +729,8 @@ export default function CADashboard() {
         icon={<AuditOutlined />}
         color="#722ed1"
         title="CA Dashboard"
-        subtitle={`${user?.caFirmName || "Tax Practice"} · FY 2025-26`}
+        subtitle={user?.caFirmName || "Tax Practice"}
+        period
       />
 
       <Tabs defaultActiveKey="clients" items={tabItems} />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Form, Input, Select, DatePicker, Button,
-  Row, Col, Typography, Alert, Space, Spin,
+  Row, Col, Alert, Space, Spin,
 } from "antd";
 import {
   UserOutlined, IdcardOutlined, MailOutlined,
@@ -10,8 +10,8 @@ import {
 import dayjs from "dayjs";
 import { createClient, updateClient, getClient } from "../../../services/ca.service.js";
 import { METRO_CITIES, isValidAadhaarChecksum } from "@itr-app/shared-types";
+import FormSectionTitle from "../../../components/FormSectionTitle.jsx";
 
-const { Title } = Typography;
 const { Option } = Select;
 
 /**
@@ -72,8 +72,8 @@ export default function ClientForm({ clientId, onSuccess, onCancel }) {
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 20, borderRadius: 8 }} closable onClose={() => setError(null)} />}
 
       <Spin spinning={fetching}>
-        <Form form={form} layout="vertical" size="large" onFinish={onFinish}>
-          <Title level={5}>Identity</Title>
+        <Form form={form} layout="vertical" onFinish={onFinish}>
+          <FormSectionTitle first>Identity</FormSectionTitle>
           <Row gutter={16}>
             <Col xs={24} sm={12}>
               <Form.Item
@@ -143,7 +143,7 @@ export default function ClientForm({ clientId, onSuccess, onCancel }) {
             </Col>
           </Row>
 
-          <Title level={5} style={{ marginTop: 8 }}>Contact</Title>
+          <FormSectionTitle>Contact</FormSectionTitle>
           <Row gutter={16}>
             <Col xs={24} sm={12}>
               <Form.Item name="email" label="Email Address" rules={[{ type: "email", message: "Invalid email" }]}>
@@ -161,7 +161,7 @@ export default function ClientForm({ clientId, onSuccess, onCancel }) {
             </Col>
           </Row>
 
-          <Title level={5} style={{ marginTop: 8 }}>Address</Title>
+          <FormSectionTitle>Address</FormSectionTitle>
           <Row gutter={16}>
             <Col xs={24}>
               <Form.Item name="addressLine1" label="Street / Flat / Colony">
@@ -187,7 +187,7 @@ export default function ClientForm({ clientId, onSuccess, onCancel }) {
             </Col>
           </Row>
 
-          <Title level={5} style={{ marginTop: 8 }}>Employment & Banking</Title>
+          <FormSectionTitle>Employment & Banking</FormSectionTitle>
           <Row gutter={16}>
             <Col xs={24} sm={12}>
               <Form.Item name="employerName" label="Employer Name">
