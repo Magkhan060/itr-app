@@ -3,6 +3,7 @@ import {
   Card, Form, InputNumber, Select, Button, Row, Col,
   Typography, Table, Tag, Alert, Statistic, Steps,
   DatePicker, Divider, Timeline, Space,
+  theme as antdTheme,
 } from "antd";
 import {
   CalendarOutlined, CheckCircleOutlined,
@@ -20,6 +21,7 @@ const fmt = (n) =>
   }).format(n || 0);
 
 export default function AdvanceTax() {
+  const { token } = antdTheme.useToken();
   const [form]    = Form.useForm();
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
@@ -218,9 +220,9 @@ export default function AdvanceTax() {
                     rowKey="installment"
                     pagination={false}
                     size="middle"
-                    rowClassName={(r) =>
-                      r.status === "due" ? "bg-red-50" : ""
-                    }
+                    onRow={(r) => ({
+                      style: r.status === "due" ? { background: token.colorErrorBg } : undefined,
+                    })}
                   />
 
                   <Divider orientation="left">

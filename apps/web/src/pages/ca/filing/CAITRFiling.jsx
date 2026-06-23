@@ -3,6 +3,7 @@ import {
   Steps, Card, Button, Form, Input, InputNumber,
   Select, DatePicker, Row, Col, Typography,
   Alert, Divider, Result, Tag, Space, Spin,
+  theme as antdTheme,
 } from "antd";
 import {
   UserOutlined, BankOutlined, FileTextOutlined,
@@ -37,6 +38,7 @@ const STEP_FIELDS = [
 ];
 
 export default function CAITRFiling() {
+  const { token }      = antdTheme.useToken();
   const { clientId }   = useParams();
   const navigate       = useNavigate();
   const { user }       = useAuthStore();
@@ -248,14 +250,14 @@ export default function CAITRFiling() {
             <Col span={12} key={label}>
               <Card
                 variant="borderless" size="small"
-                style={{ borderRadius: 10, outline: data === recommended ? "2px solid #1677ff" : "1px solid #f0f0f0" }}
+                style={{ borderRadius: 10, outline: data === recommended ? `2px solid ${token.colorPrimary}` : `1px solid ${token.colorBorderSecondary}` }}
                 title={<Space><Text strong>{label}</Text>{data === recommended && <Tag color="blue">Recommended</Tag>}</Space>}
               >
                 {[["Gross Income", data.grossIncome], ["Deductions", data.deductionTotal],
                   ["Taxable Income", data.taxableIncome], ["Total Tax", data.totalTax]].map(([lbl, val]) => (
-                  <div key={lbl} className="flex justify-between py-1" style={{ borderBottom: "1px solid #f5f5f5" }}>
+                  <div key={lbl} className="flex justify-between py-1" style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>{lbl}</Text>
-                    <Text strong style={{ fontSize: 12, color: lbl === "Total Tax" ? "#1677ff" : "inherit" }}>{fmt(val)}</Text>
+                    <Text strong style={{ fontSize: 12, color: lbl === "Total Tax" ? token.colorPrimary : "inherit" }}>{fmt(val)}</Text>
                   </div>
                 ))}
                 <div className="flex justify-between pt-2">

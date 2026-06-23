@@ -8,12 +8,13 @@ import {
   FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined,
   FileDoneOutlined, ArrowRightOutlined, CalculatorOutlined,
   UploadOutlined, BankOutlined, CalendarOutlined, PlusOutlined,
-  SafetyCertificateOutlined,
+  SafetyCertificateOutlined, DownloadOutlined, AuditOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore, useFlagsStore } from "../../store/index.js";
 import { FLAGS } from "../../config/features.config.js";
 import { getMyFilings } from "../../services/filing.service.js";
+import { getPortalFilings, downloadPortalFilingXML } from "../../services/client-portal.service.js";
 
 const { Title, Text } = Typography;
 
@@ -94,6 +95,10 @@ export default function Dashboard() {
   const [filings, setFilings]             = useState([]);
   const [filingsLoading, setFilingsLoading] = useState(false);
 
+  const [portalFilings, setPortalFilings]   = useState([]);
+  const [portalLoading, setPortalLoading]   = useState(false);
+  const [downloadingId, setDownloadingId]   = useState(null);
+
   useEffect(() => {
     setFilingsLoading(true);
     getMyFilings()
@@ -101,6 +106,34 @@ export default function Dashboard() {
       .catch(() => {})
       .finally(() => setFilingsLoading(false));
   }, []);
+
+  // CA-onboarded clients (linkedCAClientId set) can additionally see the
+  // filings their CA prepared on their behalf, read-only.
+  useEffect(() => {
+    if (!user?.linkedCAClientId) return;
+    setPortalLoading(true);
+    getPortalFilings()
+      .then((res) => setPortalFilings(res.data || []))
+      .catch(() => {})
+      .finally(() => setPortalLoading(false));
+  }, [user?.linkedCAClientId]);
+
+  const handleDownloadPortalXML = async (filingId) => {
+    setDownloadingId(filingId);
+    try {
+      const blob = await downloadPortalFilingXML(filingId);
+      const url  = URL.createObjectURL(new Blob([blob], { type: "application/xml" }));
+      const a    = document.createElement("a");
+      a.href = url;
+      a.download = `ITR1_AY2026-27_${filingId}.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // download failures are surfaced via the disabled button state only — non-critical
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const isEnabled = (key) =>
     hasFetched ? (liveFlags[key] ?? false) : (FLAGS[key]?.enabled ?? false);
@@ -211,6 +244,69 @@ export default function Dashboard() {
       dataIndex: "submittedAt",
       key:       "date",
       render:    (d) => d ? new Date(d).toLocaleDateString("en-IN") : "—",
+    },
+  ];
+
+  const portalFilingColumns = [
+    {
+      title:     "Form",
+      dataIndex: "itrType",
+      key:       "itrType",
+      render:    (v) => <Tag color="blue">{v}</Tag>,
+    },
+    {
+      title:     "AY",
+      dataIndex: "assessmentYear",
+      key:       "ay",
+      render:    (v) => <Text style={{ fontSize: 12 }}>{v}</Text>,
+    },
+    {
+      title:     "Status",
+      dataIndex: "status",
+      key:       "status",
+      render:    (s) => <Tag color={STATUS_COLOR[s] || "default"}>{s?.toUpperCase()}</Tag>,
+    },
+    {
+      title:     "Tax",
+      key:       "tax",
+      render:    (_, r) => (
+        <Text strong style={{ color: "#1677ff" }}>
+          {r.itr1Data?.taxComputation?.totalTax != null ? fmt(r.itr1Data.taxComputation.totalTax) : "—"}
+        </Text>
+      ),
+    },
+    {
+      title:     "Acknowledgement",
+      dataIndex: "acknowledgementNo",
+      key:       "ack",
+      render:    (v) => v ? <Text code style={{ fontSize: 11 }}>{v}</Text> : <Text type="secondary">—</Text>,
+    },
+    {
+      title:  "Actions",
+      key:    "actions",
+      render: (_, r) => (
+        <Space>
+          {r.status !== "draft" && (
+            <Tooltip title="Download ITR XML">
+              <Button
+                size="small"
+                icon={<DownloadOutlined />}
+                loading={downloadingId === r._id}
+                onClick={() => handleDownloadPortalXML(r._id)}
+              />
+            </Tooltip>
+          )}
+          {r.status !== "draft" && (
+            <Tooltip title="Track Refund Status">
+              <Button
+                size="small"
+                icon={<BankOutlined />}
+                onClick={() => navigate(`/refund-tracker?source=portal&id=${r._id}`)}
+              />
+            </Tooltip>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -399,6 +495,31 @@ export default function Dashboard() {
           </Card>
         </Col>
       </Row>
+
+      {/* Filed by Your CA — only shown for clients onboarded to a CA's Client Portal */}
+      {user?.linkedCAClientId && (
+        <Card
+          title={
+            <Space>
+              <AuditOutlined />
+              <span>Filed by Your CA</span>
+            </Space>
+          }
+          variant="borderless"
+          style={{ borderRadius: 10, marginTop: 16 }}
+        >
+          <Table
+            dataSource={portalFilings}
+            columns={portalFilingColumns}
+            rowKey="_id"
+            loading={portalLoading}
+            pagination={false}
+            size="small"
+            scroll={{ x: true }}
+            locale={{ emptyText: <Empty description="Your CA hasn't filed anything for you yet." /> }}
+          />
+        </Card>
+      )}
     </div>
   );
 }

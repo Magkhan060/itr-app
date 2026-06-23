@@ -43,14 +43,18 @@ import efilingRoutes  from "./modules/efiling/efiling.routes.js";
 import caRoutes       from "./modules/ca/ca.routes.js";
 import approvalRoutes from "./modules/approvals/approval.routes.js";
 import inviteRoutes   from "./modules/ca/invite-public.routes.js";
+import clientInviteRoutes from "./modules/ca/client-invite-public.routes.js";
+import clientPortalRoutes from "./modules/client-portal/client-portal.routes.js";
 import { seedFlags }  from "./modules/features/features.service.js";
 
-app.use("/api/features",  featuresRoutes);
-app.use("/api/admin",     adminRoutes);
-app.use("/api/efiling",   efilingRoutes);
-app.use("/api/ca",        caRoutes);
-app.use("/api/approvals", approvalRoutes);
-app.use("/api/invites",   inviteRoutes);
+app.use("/api/features",      featuresRoutes);
+app.use("/api/admin",         adminRoutes);
+app.use("/api/efiling",       efilingRoutes);
+app.use("/api/ca",            caRoutes);
+app.use("/api/approvals",     approvalRoutes);
+app.use("/api/invites",       inviteRoutes);
+app.use("/api/client-invites", clientInviteRoutes);
+app.use("/api/client-portal",  clientPortalRoutes);
 
 // ── Error handler ───────────────────────────────────────────
 app.use(errorHandler);

@@ -24,6 +24,13 @@ export const DEDUCTION_LIMITS = {
   STANDARD_DED_OLD:    50000,  // Old regime standard deduction
 };
 
+// Equity capital gains — Sec 111A (STCG) / Sec 112A (LTCG), rates per Budget 2024
+export const CAPITAL_GAINS = {
+  SEC_111A_RATE:      0.20,    // STCG on listed equity / equity MF, STT paid
+  SEC_112A_RATE:      0.125,   // LTCG on listed equity / equity MF, STT paid
+  SEC_112A_EXEMPTION: 125000,  // LTCG exemption threshold u/s 112A
+};
+
 export const METRO_CITIES = ["Mumbai", "Delhi", "Kolkata", "Chennai"];
 
 export const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;

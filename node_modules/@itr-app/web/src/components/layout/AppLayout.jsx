@@ -102,19 +102,28 @@ export default function AppLayout() {
   return (
     <Layout style={{ minHeight: "100vh" }}>
       {/* ── Sider ─────────────────────────────────────── */}
+      {/* theme prop drives Menu's internal selected/hover styling, but we
+          override the actual background/border/text colors below with live
+          tokens so the Sider matches our custom dark palette (black/charcoal)
+          instead of ANTD's preset navy, and properly flips with the toggle
+          instead of staying permanently dark. */}
       <Sider
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
-        theme="dark"
+        theme={mode === "dark" ? "dark" : "light"}
         width={240}
-        style={{ position: "fixed", height: "100vh", left: 0, top: 0, zIndex: 100 }}
+        style={{
+          position: "fixed", height: "100vh", left: 0, top: 0, zIndex: 100,
+          background: token.colorBgContainer,
+          borderRight: `1px solid ${token.colorBorderSecondary}`,
+        }}
       >
         {/* Logo */}
         <div
           style={{
             display: "flex", alignItems: "center", justifyContent: "center",
-            padding: "18px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)",
+            padding: "18px 16px", borderBottom: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
           <div
@@ -129,10 +138,10 @@ export default function AppLayout() {
           </div>
           {!collapsed && (
             <div style={{ marginLeft: 10, lineHeight: 1.25 }}>
-              <Text strong style={{ color: "#fff", fontSize: 15, whiteSpace: "nowrap", display: "block" }}>
+              <Text strong style={{ color: token.colorText, fontSize: 15, whiteSpace: "nowrap", display: "block" }}>
                 ITR Filing
               </Text>
-              <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, whiteSpace: "nowrap" }}>
+              <Text style={{ color: token.colorTextSecondary, fontSize: 10, whiteSpace: "nowrap" }}>
                 Tax made simple
               </Text>
             </div>
@@ -147,12 +156,12 @@ export default function AppLayout() {
         )}
 
         <Menu
-          theme="dark"
+          theme={mode === "dark" ? "dark" : "light"}
           mode="inline"
           selectedKeys={[location.pathname]}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
-          style={{ borderRight: 0, marginTop: 4 }}
+          style={{ borderRight: 0, marginTop: 4, background: "transparent" }}
         />
 
         {/* Bottom user strip */}
@@ -161,7 +170,7 @@ export default function AppLayout() {
             style={{
               position: "absolute", bottom: 48, left: 0, right: 0,
               padding: "10px 16px",
-              borderTop: "1px solid rgba(255,255,255,0.06)",
+              borderTop: `1px solid ${token.colorBorderSecondary}`,
               display: "flex", alignItems: "center", gap: 10,
             }}
           >
@@ -172,10 +181,10 @@ export default function AppLayout() {
               {initials(user?.fullName)}
             </Avatar>
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: "#fff", fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ color: token.colorText, fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {user?.fullName}
               </div>
-              <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10 }}>
+              <div style={{ color: token.colorTextSecondary, fontSize: 10 }}>
                 {ROLE_LABEL[user?.role] || "Taxpayer"}
               </div>
             </div>

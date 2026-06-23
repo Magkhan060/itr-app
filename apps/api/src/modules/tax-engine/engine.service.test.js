@@ -9,6 +9,8 @@ import {
   computeTax,
   compareRegimes,
   computeOldRegimeDeductions,
+  computeCapitalGainsTax,
+  compareRegimesWithCapitalGains,
 } from "./engine.service.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -333,5 +335,84 @@ describe("compareRegimes", () => {
     const r2 = compareRegimes({ grossIncome: 10_00_000, otherIncome: 1_00_000 });
     expect(r2.old.grossIncome).toBe(11_00_000);
     expect(r2.old.totalTax).toBeGreaterThan(r1.old.totalTax);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// computeCapitalGainsTax
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("computeCapitalGainsTax", () => {
+  it("taxes STCG u/s 111A at a flat 20% with no exemption", () => {
+    const r = computeCapitalGainsTax({ stcg111A: 1_00_000 });
+    expect(r.stcgTax).toBe(20_000);
+    expect(r.totalCGTax).toBe(20_000);
+  });
+
+  it("exempts the first ₹1,25,000 of LTCG u/s 112A", () => {
+    const r = computeCapitalGainsTax({ ltcg112A: 1_00_000 });
+    expect(r.taxableLTCG).toBe(0);
+    expect(r.ltcgTax).toBe(0);
+  });
+
+  it("taxes LTCG above the exemption at 12.5%", () => {
+    const r = computeCapitalGainsTax({ ltcg112A: 2_00_000 });
+    expect(r.taxableLTCG).toBe(75_000);
+    expect(r.ltcgTax).toBe(9_375);
+  });
+
+  it("combines STCG and LTCG tax independently", () => {
+    const r = computeCapitalGainsTax({ stcg111A: 50_000, ltcg112A: 3_00_000 });
+    expect(r.stcgTax).toBe(10_000);
+    expect(r.taxableLTCG).toBe(1_75_000);
+    expect(r.ltcgTax).toBe(21_875);
+    expect(r.totalCGTax).toBe(31_875);
+  });
+
+  it("returns zero tax when no capital gains supplied", () => {
+    const r = computeCapitalGainsTax();
+    expect(r.totalCGTax).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// compareRegimesWithCapitalGains
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("compareRegimesWithCapitalGains", () => {
+  it("adds capital gains tax on top of slab tax even when 87A rebate zeroes the slab tax", () => {
+    // Low enough slab income that 87A rebate fully zeroes slab tax in both regimes —
+    // demonstrates capital gains tax survives independent of the slab-income rebate.
+    const r = compareRegimesWithCapitalGains({
+      grossIncome: 4_00_000,
+      capitalGains: { stcg111A: 2_00_000 },
+    });
+
+    expect(r.new.slabTaxPostRebate).toBe(0);
+    expect(r.old.slabTaxPostRebate).toBe(0);
+    expect(r.new.capitalGains.totalCGTax).toBe(40_000);
+    // totalTax = CG tax (40,000) + 4% cess on it (1,600) — no surcharge at this income level
+    expect(r.new.totalTax).toBe(41_600);
+    expect(r.old.totalTax).toBe(41_600);
+  });
+
+  it("matches plain compareRegimes when no capital gains are supplied", () => {
+    const plain    = compareRegimes({ grossIncome: 60_00_000 });
+    const withCG   = compareRegimesWithCapitalGains({ grossIncome: 60_00_000 });
+
+    expect(withCG.old.totalTax).toBe(plain.old.totalTax);
+    expect(withCG.new.totalTax).toBe(plain.new.totalTax);
+  });
+
+  it("includes capital gains in the income used to determine the surcharge band", () => {
+    // Slab income alone is below every surcharge threshold, but adding a large
+    // LTCG pushes combined total income into a surcharge band.
+    const r = compareRegimesWithCapitalGains({
+      grossIncome: 40_00_000,
+      capitalGains: { ltcg112A: 1_50_00_000 },
+    });
+
+    expect(r.new.totalIncomeWithCG).toBeGreaterThan(50_00_000);
+    expect(r.new.surcharge).toBeGreaterThan(0);
   });
 });

@@ -7,6 +7,7 @@ import {
   SURCHARGE_RATES,
   CESS_RATE,
   DEDUCTION_LIMITS,
+  CAPITAL_GAINS,
 } from "@itr-app/shared-types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -220,5 +221,66 @@ export const compareRegimes = (input) => {
     new:            newRegime,
     betterRegime:   savings > 0 ? "new" : savings < 0 ? "old" : "equal",
     savingsAmount:  Math.abs(savings),
+  };
+};
+
+// ── Equity Capital Gains (Sec 111A / 112A) ──────────────────────────────────
+// Special-rate income — never touches Chapter VI-A deductions or slab rates.
+// LTCG exemption (₹1,25,000) applies once per return, not per regime.
+
+export const computeCapitalGainsTax = ({ stcg111A = 0, ltcg112A = 0 } = {}) => {
+  const taxableLTCG = Math.max(0, ltcg112A - CAPITAL_GAINS.SEC_112A_EXEMPTION);
+  const stcgTax      = Math.round(stcg111A * CAPITAL_GAINS.SEC_111A_RATE);
+  const ltcgTax       = Math.round(taxableLTCG * CAPITAL_GAINS.SEC_112A_RATE);
+
+  return {
+    stcg111A,
+    ltcg112A,
+    taxableLTCG,
+    stcgTax,
+    ltcgTax,
+    totalCGTax: stcgTax + ltcgTax,
+  };
+};
+
+// Wraps compareRegimes() with capital gains tax layered on top: rebate u/s 87A
+// applies only to tax on normal slab income (current CBDT position — capital
+// gains u/s 111A/112A are explicitly excluded from 87A rebate eligibility in
+// both regimes), but surcharge and cess apply to the COMBINED total since
+// surcharge slabs are based on total income including special-rate gains.
+export const compareRegimesWithCapitalGains = (input) => {
+  const base = compareRegimes(input);
+  const cg   = computeCapitalGainsTax(input.capitalGains);
+
+  const buildCombined = (regimeResult, regime) => {
+    const slabTaxPostRebate = regimeResult.taxBeforeRebate - regimeResult.rebateApplied;
+    const combinedPreSurcharge = slabTaxPostRebate + cg.totalCGTax;
+    const combinedIncome = regimeResult.taxableIncome + cg.stcg111A + cg.taxableLTCG;
+
+    const surcharge = applySurcharge(combinedPreSurcharge, combinedIncome, regime);
+    const cess      = Math.round((combinedPreSurcharge + surcharge) * CESS_RATE);
+    const totalTax  = combinedPreSurcharge + surcharge + cess;
+
+    return {
+      ...regimeResult,
+      capitalGains:     cg,
+      slabTaxableIncome: regimeResult.taxableIncome,
+      totalIncomeWithCG: combinedIncome,
+      slabTaxPostRebate,
+      surcharge,
+      cess,
+      totalTax,
+    };
+  };
+
+  const oldRegime = buildCombined(base.old, "old");
+  const newRegime = buildCombined(base.new, "new");
+  const savings   = oldRegime.totalTax - newRegime.totalTax;
+
+  return {
+    old:           oldRegime,
+    new:           newRegime,
+    betterRegime:  savings > 0 ? "new" : savings < 0 ? "old" : "equal",
+    savingsAmount: Math.abs(savings),
   };
 };

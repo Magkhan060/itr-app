@@ -79,6 +79,28 @@ export const caInviteEmail = ({ inviterName, firmName, role, token, appUrl }) =>
 </html>`,
 });
 
+export const clientPortalInviteEmail = ({ clientName, caName, firmName, token, appUrl }) => ({
+  subject: `Access Your ITR Filings Online — Invitation from ${caName || "Your CA"}`,
+  html: `
+<!DOCTYPE html>
+<html>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+  <div style="background:#13c2c2;padding:20px;border-radius:8px 8px 0 0;text-align:center">
+    <h2 style="color:#fff;margin:0">Your CA Has Invited You</h2>
+  </div>
+  <div style="background:#fff;border:1px solid #e8e8e8;border-top:none;padding:28px;border-radius:0 0 8px 8px">
+    <p>Dear <strong>${clientName}</strong>,</p>
+    <p><strong>${caName || "Your CA"}</strong>${firmName ? ` (${firmName})` : ""} has invited you to create a free account on the ITR Filing Portal, where you can view your filings, download your ITR XML, and track your refund status — any time, without contacting your CA.</p>
+    <p>Click below to set up your account. You'll need to confirm your PAN and choose a password:</p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="${appUrl}/client-portal/join/${token}" style="background:#13c2c2;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Set Up My Account</a>
+    </div>
+    <p style="color:#888;font-size:12px">This invite link is valid for 7 days.</p>
+  </div>
+</body>
+</html>`,
+});
+
 export const approvalResponseEmail = ({ caName, clientName, status, comment }) => ({
   subject: `Client ${status === "approved" ? "Approved" : "Rejected"} ITR Filing — ${clientName}`,
   html: `

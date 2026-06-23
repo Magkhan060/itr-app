@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Table, Tag, Card, Typography, Select, Space, message,
   Avatar, Tooltip, Alert, Badge,
+  theme as antdTheme,
 } from "antd";
 import {
   SwapOutlined, CheckCircleOutlined, StopOutlined,
@@ -41,6 +42,7 @@ const renderChange = (before, after) => {
 };
 
 export default function AdminAuditLog() {
+  const { token } = antdTheme.useToken();
   const [logs, setLogs]       = useState([]);
   const [total, setTotal]     = useState(0);
   const [loading, setLoading] = useState(true);
@@ -79,7 +81,7 @@ export default function AdminAuditLog() {
           </Avatar>
           <div>
             <div style={{ fontWeight: 600, fontSize: 12 }}>{r.adminId?.fullName || "Unknown"}</div>
-            <div style={{ color: "#8c8c8c", fontSize: 11 }}>{r.adminId?.pan || "—"}</div>
+            <div style={{ color: token.colorTextSecondary, fontSize: 11 }}>{r.adminId?.pan || "—"}</div>
           </div>
         </Space>
       ),

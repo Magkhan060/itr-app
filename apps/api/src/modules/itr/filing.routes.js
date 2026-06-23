@@ -12,10 +12,12 @@ const router = Router();
 router.use(protect);
 
 router.get("/",           filingController.getMyFilings);
-router.get("/:id/xml",    requireFeature("ITR_1"), filingController.downloadFilingXML);
+router.get("/:id/xml",    filingController.downloadFilingXML);
 router.get("/:id",        filingController.getFilingById);
 router.post("/draft",     requireFeature("ITR_1"), filingController.saveDraft);
 router.post("/itr1",      requireFeature("ITR_1"), filingController.submitITR1);
+router.post("/itr2/draft", requireFeature("ITR_2"), filingController.saveDraftITR2);
+router.post("/itr2",       requireFeature("ITR_2"), filingController.submitITR2);
 
 router.get("/:id/refund", async (req, res, next) => {
   try {

@@ -35,3 +35,6 @@ export const approvalSMS = (clientName, approveUrl) =>
 
 export const approvalResponseSMS = (clientName, status) =>
   `ITR Portal: ${clientName} has ${status === "approved" ? "APPROVED" : "REQUESTED CHANGES to"} their ITR-1 filing. Log in to proceed.`;
+
+export const clientPortalInviteSMS = (clientName, joinUrl) =>
+  `ITR Portal: Dear ${clientName}, your CA has invited you to view your ITR filings online. Set up your account: ${joinUrl}`;

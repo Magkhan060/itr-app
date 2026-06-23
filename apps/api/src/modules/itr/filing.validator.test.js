@@ -4,7 +4,10 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { saveDraftSchema, submitITR1Schema } from "./filing.validator.js";
+import {
+  saveDraftSchema, submitITR1Schema,
+  saveDraftItr2Schema, submitITR2Schema,
+} from "./filing.validator.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Valid payload factories
@@ -229,5 +232,156 @@ describe("submitITR1Schema — deductions", () => {
     expect(result.success).toBe(true);
     expect(result.data?.deductions.sec80C).toBe(0);
     expect(result.data?.deductions.sec80G).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ITR-2 — valid payload factories
+// ─────────────────────────────────────────────────────────────────────────────
+
+const validItr2Deductions = () => ({
+  sec80C:         1_50_000,
+  sec80CCD1B:     0,
+  sec80D_self:    0,
+  sec80D_parents: 0,
+  hra_exempt:     0,
+  lta:            0,
+  sec80TTA_TTB:   0,
+  sec80G:         0,
+});
+
+const validHouseProperty = (overrides = {}) => ({
+  type:           "let_out",
+  address:        "123 MG Road, Mumbai",
+  annualRent:     3_00_000,
+  municipalTax:   10_000,
+  interestOnLoan: 50_000,
+  ...overrides,
+});
+
+const validSubmitITR2Payload = () => ({
+  selectedRegime:  "new",
+  personalInfo:    validPersonalInfo(),
+  incomeDetails:   validIncomeDetails(),
+  houseProperties: [validHouseProperty()],
+  capitalGains:    { stcg111A: 1_00_000, ltcg112A: 2_00_000 },
+  deductions:      validItr2Deductions(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// saveDraftItr2Schema
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("saveDraftItr2Schema", () => {
+  it("accepts a valid draft payload", () => {
+    const result = saveDraftItr2Schema.safeParse({ step: 0, data: { fullName: "RAJESH" } });
+    expect(result.success).toBe(true);
+  });
+
+  it("defaults itrType to 'ITR-2' when omitted", () => {
+    const result = saveDraftItr2Schema.safeParse({ step: 1, data: {} });
+    expect(result.data?.itrType).toBe("ITR-2");
+  });
+
+  it("rejects an itrType of 'ITR-1'", () => {
+    const result = saveDraftItr2Schema.safeParse({ itrType: "ITR-1", step: 0, data: {} });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts step up to 4 (one more step than ITR-1's max of 3)", () => {
+    const result = saveDraftItr2Schema.safeParse({ step: 4, data: {} });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects step > 4", () => {
+    const result = saveDraftItr2Schema.safeParse({ step: 5, data: {} });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// submitITR2Schema — houseProperties
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("submitITR2Schema — houseProperties", () => {
+  it("accepts a valid payload with one let-out property", () => {
+    const result = submitITR2Schema.safeParse(validSubmitITR2Payload());
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts multiple properties, mixing self-occupied and let-out", () => {
+    const payload = validSubmitITR2Payload();
+    payload.houseProperties = [
+      validHouseProperty({ type: "self_occupied", annualRent: 0, municipalTax: 0 }),
+      validHouseProperty({ type: "let_out" }),
+    ];
+    expect(submitITR2Schema.safeParse(payload).success).toBe(true);
+  });
+
+  it("defaults houseProperties to an empty array when omitted", () => {
+    const payload = validSubmitITR2Payload();
+    delete payload.houseProperties;
+    const result = submitITR2Schema.safeParse(payload);
+    expect(result.success).toBe(true);
+    expect(result.data?.houseProperties).toEqual([]);
+  });
+
+  it("rejects a property type outside self_occupied/let_out", () => {
+    const payload = validSubmitITR2Payload();
+    payload.houseProperties = [validHouseProperty({ type: "commercial" })];
+    expect(submitITR2Schema.safeParse(payload).success).toBe(false);
+  });
+
+  it("rejects negative interestOnLoan", () => {
+    const payload = validSubmitITR2Payload();
+    payload.houseProperties = [validHouseProperty({ interestOnLoan: -1 })];
+    expect(submitITR2Schema.safeParse(payload).success).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// submitITR2Schema — capitalGains
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("submitITR2Schema — capitalGains", () => {
+  it("accepts a valid capitalGains block", () => {
+    expect(submitITR2Schema.safeParse(validSubmitITR2Payload()).success).toBe(true);
+  });
+
+  it("defaults capitalGains to zero when omitted entirely", () => {
+    const payload = validSubmitITR2Payload();
+    delete payload.capitalGains;
+    const result = submitITR2Schema.safeParse(payload);
+    expect(result.success).toBe(true);
+    expect(result.data?.capitalGains.stcg111A).toBe(0);
+    expect(result.data?.capitalGains.ltcg112A).toBe(0);
+  });
+
+  it("rejects negative ltcg112A", () => {
+    const payload = validSubmitITR2Payload();
+    payload.capitalGains.ltcg112A = -1;
+    expect(submitITR2Schema.safeParse(payload).success).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// submitITR2Schema — deductions (no homeLoanInterest, unlike ITR-1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("submitITR2Schema — deductions", () => {
+  it("does not accept/require a homeLoanInterest field (captured per-property instead)", () => {
+    const payload = validSubmitITR2Payload();
+    payload.deductions.homeLoanInterest = 50_000;
+    const result = submitITR2Schema.safeParse(payload);
+    expect(result.success).toBe(true);
+    expect(result.data?.deductions.homeLoanInterest).toBeUndefined();
+  });
+
+  it("defaults all deduction fields to 0 when not provided", () => {
+    const payload = validSubmitITR2Payload();
+    payload.deductions = {};
+    const result = submitITR2Schema.safeParse(payload);
+    expect(result.success).toBe(true);
+    expect(result.data?.deductions.sec80C).toBe(0);
   });
 });

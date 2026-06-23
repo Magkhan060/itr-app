@@ -212,6 +212,27 @@ Full 4-step wizard (Personal Info → Income → Deductions → Tax Summary + Su
 
 **Dayjs gotcha:** `dateOfBirth` from DatePicker is a dayjs object — must call `.format("YYYY-MM-DD")` before spreading into the draft/submit payload to avoid circular reference warning.
 
+### ITR-2 Filing — Self Service (`apps/web/src/pages/filing/itr2/`, `apps/api/src/modules/itr/`)
+5-step wizard (Personal → Income → Property & Capital Gains → Deductions → Tax Summary + Submit), stored in a sibling `itr2Data` subdocument on the same `Filing` model (not a separate collection). Feature-gated: `ITR_2` (already `enabled: true`).
+
+**Scope (deliberately reduced from full ITR-2)** — see roadmap item 12:
+- House property: **multiple** properties (self-occupied + let-out), unlike ITR-1's single self-occupied property.
+- Capital gains: **equity only** — Sec 111A STCG (20% flat) and Sec 112A LTCG (12.5% above a ₹1,25,000 exemption). Entry is an **aggregate figure** the user computes from their broker's capital gains statement, not a transaction-level ledger (no FIFO/grandfathering cost-basis logic).
+- No debt-fund/property capital gains, no foreign income/assets, no business income. No CA-side filing wizard (CA-prepared ITR-2 is not yet supported — self-service only).
+
+**Personal/Income/Deductions fields:** identical to ITR-1, **except** `deductions.homeLoanInterest` does not exist for ITR-2 — self-occupied property interest is captured per-property in `houseProperties[].interestOnLoan` instead, so it can't be double-entered as both a Chapter VI-A deduction and a property figure.
+
+**House property computation (`computeHousePropertyBreakdown()` in `filing.service.js`):**
+- Let-out: `rent − municipal tax − 30% standard deduction − loan interest` — deductible identically under both regimes (Sec 24(b) interest on let-out property is not regime-restricted).
+- Self-occupied: only interest is deductible, capped at ₹2,00,000 combined under the **old regime only**; **disallowed entirely under the new regime** (same restriction ITR-1 already applies to its single property).
+- **Tax-fairness gotcha:** self-occupied interest is passed to the engine as `deductions.homeLoanInterest`, NOT blended into `otherIncome` — `compareRegimes()`/`compareRegimesWithCapitalGains()` use one `otherIncome` figure for both regimes being compared, so a regime-dependent deduction baked into it would silently favor whichever regime the figure was computed for. Routing it through `deductions` lets the engine's already-correct per-regime capping (`computeOldRegimeDeductions` caps at 200000; the new-regime branch zeroes all deductions) apply correctly to both sides of the comparison.
+
+**Tax computation — `compareRegimesWithCapitalGains()` in `engine.service.js`:**
+- Wraps `compareRegimes()` (slab tax unchanged) and layers `computeCapitalGainsTax()` on top.
+- Rebate u/s 87A applies only to tax on normal slab income — **not** to capital gains tax (current CBDT position; both regimes).
+- Surcharge and cess are recomputed on the **combined** total (slab tax + capital gains tax) using **combined** total income (slab taxable income + STCG + taxable LTCG), since surcharge bands are based on total income including special-rate gains — this is why the result shape (`slabTaxableIncome`, `slabTaxPostRebate`, `totalIncomeWithCG`, `capitalGains: {...}`) differs from plain `compareRegimes()`'s output.
+- Live preview during the wizard: `POST /api/tax/compare-cg` (mirrors `/api/tax/compare`) — lets the Tax Summary step show the old-vs-new breakdown before the user commits to a final `submitITR2()`.
+
 ### Tax Engine (`apps/api/src/modules/tax-engine/`)
 - Computes old and new regime tax in parallel (`compareRegimes()`)
 - Applies correct standard deduction (₹75K new / ₹50K old for AY 2026-27)
@@ -219,9 +240,10 @@ Full 4-step wizard (Personal Info → Income → Deductions → Tax Summary + Su
 - Computes HRA exemption (metro 50% / non-metro 40% of basic, min of three conditions)
 - Surcharge, health & education cess, rebate u/s 87A
 - Returns `betterRegime`, `savingsAmount`, and full breakdown for both regimes
+- `computeCapitalGainsTax()` / `compareRegimesWithCapitalGains()` — equity capital gains (Sec 111A/112A) for ITR-2, see above
 
 ### XML Generator (`apps/api/src/modules/efiling/xml-generator.js`)
-Generates ITD-schema ITR-1 XML for manual upload or API submission. Sections:
+`generateITR1XML(filing)` generates ITD-schema ITR-1 XML. Sections:
 `CreationInfo`, `PersonalInfo`, `Address`, `FilingStatus`, `ScheduleS`, `ScheduleHP`, `ScheduleOS`, `ScheduleVIA`, `ITR1_IncomeDeductions`, `ITR1_TaxComputation`, `TaxPaid`, `Refund`, `Verification`
 
 **Regime-aware logic:**
@@ -229,10 +251,14 @@ Generates ITD-schema ITR-1 XML for manual upload or API submission. Sections:
 - Old regime: standard deduction = ₹50,000; all deductions apply
 - AadhaarCardNo, MobileNo, ResidenceNo, PinCode, FatherName now populated from stored data
 
+`generateITR2XML(filing)` mirrors the above (same `PersonalInfo`/`Address`/`FilingStatus`/`ScheduleS`/`ScheduleVIA`/`TaxPaid`/`Refund`/`Verification` shape) but `ScheduleHP` iterates `houseProperties[]` instead of a single figure, and adds a `ScheduleCG` section (`ShortTermCapGainFor111A`, `LongTermCapGain112A`, `LTCGDeduction112A`, etc.).
+
+**Dispatch by itrType:** `efiling.service.js`'s `getITRXML()`/`submitToITD()` and `client-portal.service.js`'s `getPortalFilingXML()` all pick `generateITR1XML` vs `generateITR2XML` based on `filing.itrType` — there's no per-type route, the existing generic `GET /api/filing/:id/xml` and client-portal XML endpoints serve both.
+
 ### Phase 2 XML Download (self-filing without ITD API)
-- Route: `GET /api/filing/:id/xml` — gated by `ITR_1` flag (not `EFILING_DIRECT`)
+- Route: `GET /api/filing/:id/xml` — works for both ITR-1 and ITR-2 (dispatches internally by `itrType`, see XML Generator above); no longer gated by `ITR_1` specifically since it serves multiple types
 - Frontend: `downloadFilingXML(id)` in `filing.service.js`
-- ITR-1 success screen shows "Download ITR XML" button + 7-step guide to upload on incometax.gov.in
+- Success screen shows "Download ITR XML" button + 7-step guide to upload on incometax.gov.in
 - Enables full filing workflow without ITD ERI/ASP registration
 
 ### e-Filing Module (`apps/api/src/modules/efiling/`, `apps/web/src/pages/filing/efiling/`)
@@ -284,6 +310,25 @@ Full CA workflow for filing ITR on behalf of clients. Feature-gated: `CA_PORTAL`
 **CA Dashboard (mounted at `/dashboard` for `ca_*` roles):**
 Tabs: Clients (pipeline stats — Total Clients, Action Required, Pending Approval, Client Approved, e-Filed, No Filing Yet; searchable/sortable/filterable client table + Compliance Calendar sidebar), Team (firm roster + invites, `ca_admin`-gated controls), Settings (`ca_admin` only — firm name, ICAI number, ITD credentials).
 
+### Client Portal (`apps/api/src/modules/ca/client-invite.*`, `apps/api/src/modules/client-portal/`, `apps/web/src/pages/auth/JoinClientPortal.jsx`)
+Optional, read-only self-service account for a CA's client. Feature-gated: `CLIENT_PORTAL`. Supersedes "CA Phase 1: No Client Login" *if* the CA chooses to invite a client — clients are otherwise still not onboarded by default.
+
+**Linking model:** `CAClient.linkedUserId` ↔ `User.linkedCAClientId` is a 1:1 pointer set once at invite-acceptance. Filings prepared by a CA are owned by `Filing.userId = <the CA>` (not the client), so every client-portal query authorizes by `Filing.caClientId` matching the requester's `linkedCAClientId` instead of by `userId` — this is the key difference from the normal taxpayer self-filing read path (`getMyFilings`).
+
+**Invite flow (mirrors the CA-staff invite pattern in `ca-invite.*`):**
+1. CA clicks "Invite to Portal" in `ClientWorkspace` (requires `requireCAWrite`; blocked if the client already has a linked account, has no email/mobile on file, a `User` with that PAN/email already exists, or an invite is already pending).
+2. UUID token (`ClientInvite` model, 7-day expiry) emailed + SMSed to the client (`clientPortalInviteEmail`/`clientPortalInviteSMS`).
+3. Public `JoinClientPortal.jsx` (`/client-portal/join/:token`) shows the client's name/email read-only (from the invite) and asks them to **re-type their own PAN** (validated server-side against `CAClient.pan`) plus set a password — lighter than a full registration form since the CA already has their other details on file, but still a real identity check beyond just possessing the email link.
+4. On acceptance: a `taxpayer`-role `User` is created (PAN/name/email/mobile/DOB copied from the `CAClient` record), `CAClient.linkedUserId` and `User.linkedCAClientId` are cross-set, and the client is logged in immediately (same `{ user, token }` shape as every other auth flow).
+
+**What the client can see/do (read-only, `apps/api/src/modules/client-portal/`):**
+- `GET /api/client-portal/filings` / `/:id` — filings list/detail, scoped by `caClientId`
+- `GET /api/client-portal/filings/:id/xml` — downloads the same XML a CA could generate, after the `caClientId` ownership check (cannot reuse `efiling.service.js`'s `getITRXML` directly — that checks `Filing.userId`)
+- `GET /api/client-portal/filings/:id/refund` — reuses `computeRefundStatus(filing)` (extracted from `refund.service.js` as a pure function so both the self-filed and client-portal paths share the same 6-stage simulation instead of duplicating it)
+- Surfaced on the taxpayer `Dashboard.jsx` as a "Filed by Your CA" card (only rendered when `user.linkedCAClientId` is set) and merged into `RefundTracker.jsx`'s filing selector alongside self-filed returns (tagged "Filed by CA")
+
+**Scope limitations (MVP):** one linked account per `CAClient` (not a list — a client with filings across multiple CAs isn't supported); no auto-merge if a `User` already exists with that PAN/email (invite creation is blocked with an error instead); no editing/submission from the portal, view-only.
+
 ### Approval System (`apps/api/src/modules/approvals/`)
 - `sendApprovalRequest(caId, filingId)` — generates token, emails + SMSes client
 - `getApprovalSummary(token)` — public, returns enriched filing summary for the approval page
@@ -328,8 +373,10 @@ The platform registers as an ASP/ERI (e-Return Intermediary) with ITD — one AP
 2. **Phase 3 (planned):** Platform submits directly via ITD API. Requires ERI registration.
 3. **CA path:** CA files on behalf of client → client approves via email link → CA handles EVC with client over phone.
 
-### CA Phase 1: No Client Login
-Clients are NOT onboarded as platform users. CA manages all client records. Client interaction is limited to: (a) receiving an approval email, (b) clicking Approve/Reject on the public token page. EVC OTP is coordinated verbally or via WhatsApp.
+### CA Phase 1: No Client Login (default) / Client Portal (opt-in)
+By default, clients are NOT onboarded as platform users. CA manages all client records. Client interaction is limited to: (a) receiving an approval email, (b) clicking Approve/Reject on the public token page. EVC OTP is coordinated verbally or via WhatsApp.
+
+A CA can optionally invite a client to the **Client Portal** (see above) for read-only self-service access (view filings, download XML, track refund) — this doesn't change the approval workflow or EVC coordination, it just gives the client an additional way to check status without contacting the CA.
 
 ### Role in JWT
 Role is embedded in the JWT at login (`generateToken(userId, role)`). `auth.middleware.js` reads `decoded.role` — no database lookup per request. **Tradeoff:** a role change (e.g., promoting a user to CA) takes effect only after the user logs in again.
@@ -397,8 +444,8 @@ Client-submitted tax values are always discarded. The backend recomputes tax via
 ### Planned (Phase 2 CA Portal — CA Users)
 9. ~~`ca_staff` / `ca_readonly` roles~~ — Done. Invite flow, `requireCAWrite`/`requireCAAdmin` middleware, and the CA Dashboard → Team tab are live (see Role & Permission Model above).
 10. ~~Re-scope CAClient/Filing ownership~~ — Done via `resolveOwnerUserId()` rather than a schema migration — see Role & Permission Model above for why no CAClient/Filing schema change was needed.
-11. **Client-facing portal** — Clients onboarded as `taxpayer` role accounts to view their own filings, download ITR XML, track refund status — without needing CA involvement for read access.
-12. **ITR-2 through ITR-7** — Only ITR-1 implemented. Other types gated by feature flags (`ITR_2`…`ITR_7`). Each needs its own model, validator, form wizard, and XML generator.
+11. ~~Client-facing portal~~ — Done. Clients can be invited (per-client, opt-in) to a `taxpayer`-role account linked via `CAClient.linkedUserId`/`User.linkedCAClientId`, to view their own filings, download ITR XML, and track refund status without CA involvement — see "Client Portal" above.
+12. ~~ITR-2~~ — Done, ITR-2 only (full ITR-3 through ITR-7 still not implemented, gated by `ITR_3`…`ITR_7` which stay `enabled: false`). See "ITR-2 Filing — Self Service" above for scope (equity capital gains + multiple house properties; no foreign assets/business income/CA-side filing) and the tax-fairness gotcha in `compareRegimesWithCapitalGains()`. Each remaining type still needs its own model field, validator, wizard, and XML generator — ITR-2's implementation is the template to follow.
 13. **Real ITD Refund API** — Replace simulated refund timeline with live ITD API call when ERI registration is complete.
 14. **Advance tax payment tracking** — Link challan payments to filings; pre-fill from 26AS.
 

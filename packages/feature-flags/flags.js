@@ -18,6 +18,7 @@ export const FLAGS = {
   REFUND_TRACKER:    { enabled: true,  label: "Refund Status Tracker"     },
   PREFILL_ITD:       { enabled: false, label: "Pre-fill from ITD Portal"  },
   CA_PORTAL:         { enabled: true,  label: "CA / Tax Professional Portal" },
+  CLIENT_PORTAL:     { enabled: true,  label: "Client Self-Service Portal"   },
 };
 
 export const isEnabled = (flagKey) => FLAGS[flagKey]?.enabled ?? false;

@@ -7,11 +7,14 @@ import {
   EditOutlined, FileTextOutlined,
   SendOutlined, CheckCircleOutlined, FileDoneOutlined,
   ClockCircleOutlined, WhatsAppOutlined, MailOutlined,
-  SafetyCertificateOutlined,
+  SafetyCertificateOutlined, UserAddOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "../../../store/index.js";
-import { getClient, sendApproval } from "../../../services/ca.service.js";
+import {
+  getClient, sendApproval,
+  sendClientPortalInvite, getClientPortalInviteStatus,
+} from "../../../services/ca.service.js";
 import PageHeader from "../../../components/PageHeader.jsx";
 
 const { Title, Text } = Typography;
@@ -31,6 +34,8 @@ export default function ClientWorkspace() {
   const [client, setClient]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [sendingApproval, setSendingApproval] = useState(false);
+  const [portalStatus, setPortalStatus]   = useState(null);
+  const [invitingPortal, setInvitingPortal] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -40,7 +45,34 @@ export default function ClientWorkspace() {
       .finally(() => setLoading(false));
   };
 
+  const loadPortalStatus = () => {
+    getClientPortalInviteStatus(clientId)
+      .then((res) => setPortalStatus(res.data))
+      .catch(() => {});
+  };
+
   useEffect(load, [clientId]);
+  useEffect(loadPortalStatus, [clientId]);
+
+  const handleInvitePortal = async () => {
+    setInvitingPortal(true);
+    try {
+      await sendClientPortalInvite(clientId);
+      message.success("Portal invite sent via email and SMS");
+      loadPortalStatus();
+    } catch (err) {
+      message.error(err.response?.data?.error || "Failed to send portal invite");
+    } finally {
+      setInvitingPortal(false);
+    }
+  };
+
+  const PORTAL_STATUS_TAG = {
+    not_invited: { color: "default", label: "Not Invited" },
+    pending:     { color: "orange",  label: "Invite Pending" },
+    expired:     { color: "red",     label: "Invite Expired" },
+    active:      { color: "green",   label: "Active" },
+  };
 
   const latestFiling = client?.filings?.[0] || null;
   const tax          = latestFiling?.itr1Data?.taxComputation || {};
@@ -153,6 +185,28 @@ export default function ClientWorkspace() {
                 <Text type="secondary" style={{ fontSize: 12 }}>Notes: {client.notes}</Text>
               </>
             )}
+
+            <Divider style={{ margin: "12px 0" }} />
+            <Space style={{ width: "100%", justifyContent: "space-between" }}>
+              <Space size={6}>
+                <Text style={{ fontSize: 12 }}>Client Portal</Text>
+                <Tag color={PORTAL_STATUS_TAG[portalStatus?.status]?.color || "default"} style={{ fontSize: 11 }}>
+                  {PORTAL_STATUS_TAG[portalStatus?.status]?.label || "—"}
+                </Tag>
+              </Space>
+              {canWrite && (portalStatus?.status === "not_invited" || portalStatus?.status === "expired") && (
+                <Tooltip title="Invite this client to view their filings, download XML, and track refund status online">
+                  <Button
+                    size="small"
+                    icon={<UserAddOutlined />}
+                    loading={invitingPortal}
+                    onClick={handleInvitePortal}
+                  >
+                    Invite to Portal
+                  </Button>
+                </Tooltip>
+              )}
+            </Space>
           </Card>
         </Col>
 
@@ -187,7 +241,7 @@ export default function ClientWorkspace() {
                   },
                 ].map(({ label, value, color }) => (
                   <Col span={6} key={label}>
-                    <Card variant="borderless" style={{ border: "1px solid #f0f0f0", borderRadius: 8, textAlign: "center" }}>
+                    <Card variant="borderless" style={{ borderRadius: 8, textAlign: "center" }}>
                       <Statistic title={<Text style={{ fontSize: 10 }}>{label}</Text>} value={fmt(value)} valueStyle={{ color, fontSize: 14, fontWeight: 600 }} />
                     </Card>
                   </Col>

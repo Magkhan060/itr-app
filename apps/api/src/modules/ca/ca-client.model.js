@@ -28,6 +28,9 @@ const caClientSchema = new mongoose.Schema(
     // Status
     isActive: { type: Boolean, default: true },
     notes:    { type: String },         // CA's internal notes about the client
+    // Client Portal — set once the client accepts a portal invite and gets
+    // their own taxpayer-role account linked to this record.
+    linkedUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );

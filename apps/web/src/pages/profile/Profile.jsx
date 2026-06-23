@@ -1,115 +1,133 @@
 import React, { useState, useEffect } from "react";
 import {
   Row, Col, Card, Typography, Descriptions, Tag,
-  Button, Table, Alert, message, Popconfirm,
-  Divider, Space, Badge,
+  Button, Table, Space, Statistic, Empty, Spin,
+  theme as antdTheme,
 } from "antd";
 import {
-  UserOutlined, FileTextOutlined, DeleteOutlined,
-  CheckCircleOutlined, CloseCircleOutlined, FilePdfOutlined,
-  InfoCircleOutlined,
+  UserOutlined, FileTextOutlined, TeamOutlined,
+  CrownOutlined, ArrowRightOutlined, FileDoneOutlined,
+  CheckCircleOutlined, ClockCircleOutlined, SafetyCertificateOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/index.js";
-import { getMyDocuments, deleteDocument } from "../../services/document.service.js";
+import { getMyFilings } from "../../services/filing.service.js";
+import { listClients } from "../../services/ca.service.js";
+import { getAdminStats } from "../../services/admin.service.js";
 import PageHeader from "../../components/PageHeader.jsx";
 
 const { Title, Text } = Typography;
 
+const CA_ROLES = ["ca_admin", "ca_staff", "ca_readonly"];
+
+const ROLE_LABEL = {
+  taxpayer:       "Taxpayer",
+  ca_admin:       "CA Admin",
+  ca_staff:       "CA Team Member",
+  ca_readonly:    "CA (Read-Only)",
+  platform_admin: "Platform Admin",
+};
+
+const STATUS_COLOR = {
+  draft:     "default",
+  submitted: "blue",
+  verified:  "green",
+  processed: "purple",
+};
+
 export default function Profile() {
   const { user } = useAuthStore();
-  const [documents, setDocuments] = useState([]);
-  const [docsLoading, setDocsLoading] = useState(false);
+  const navigate  = useNavigate();
+  const { token } = antdTheme.useToken();
 
-  const fetchDocuments = async () => {
-    setDocsLoading(true);
-    try {
-      const res = await getMyDocuments();
-      setDocuments(res.data || []);
-    } catch (_) {} finally {
-      setDocsLoading(false);
-    }
-  };
+  const isCA      = CA_ROLES.includes(user?.role);
+  const isAdmin   = user?.role === "platform_admin";
+  const isTaxpayer = !isCA && !isAdmin;
 
-  useEffect(() => { fetchDocuments(); }, []);
+  const [filings, setFilings]   = useState([]);
+  const [clients, setClients]   = useState([]);
+  const [adminStats, setAdminStats] = useState(null);
+  const [loading, setLoading]   = useState(false);
 
-  const handleDelete = async (id) => {
-    try {
-      await deleteDocument(id);
-      message.success("Document deleted");
-      fetchDocuments();
-    } catch (err) {
-      message.error(err.message);
-    }
-  };
+  useEffect(() => {
+    setLoading(true);
+    const request = isTaxpayer
+      ? getMyFilings().then((res) => setFilings(res.data || []))
+      : isCA
+        ? listClients().then((res) => setClients(res.data || []))
+        : isAdmin
+          ? getAdminStats().then((res) => setAdminStats(res.data))
+          : Promise.resolve();
 
-  const docColumns = [
+    request.catch(() => {}).finally(() => setLoading(false));
+  }, [user?.role]);
+
+  const draftCount     = filings.filter((f) => f.status === "draft").length;
+  const submittedCount = filings.filter((f) => f.status !== "draft").length;
+
+  const filingColumns = [
+    { title: "Form",   dataIndex: "itrType",       key: "itrType", render: (v) => <Tag color="blue">{v}</Tag> },
+    { title: "AY",     dataIndex: "assessmentYear", key: "ay" },
+    { title: "Status", dataIndex: "status",         key: "status", render: (s) => <Tag color={STATUS_COLOR[s] || "default"}>{s?.toUpperCase()}</Tag> },
     {
-      title:     "File",
-      dataIndex: "originalName",
-      key:       "name",
-      render:    (name) => (
-        <Space>
-          <FilePdfOutlined style={{ color: "#ff4d4f" }} />
-          <Text>{name}</Text>
-        </Space>
-      ),
-    },
-    {
-      title:     "Type",
-      dataIndex: "type",
-      key:       "type",
-      render:    (t) => <Tag color="blue">{t?.toUpperCase()}</Tag>,
-    },
-    {
-      title:     "FY",
-      dataIndex: "financialYear",
-      key:       "fy",
-    },
-    {
-      title:     "Parse Status",
-      dataIndex: "parseStatus",
-      key:       "status",
-      render:    (s) => (
-        <Tag
-          color={s === "success" ? "success" : s === "failed" ? "error" : "default"}
-          icon={s === "success" ? <CheckCircleOutlined /> : s === "failed" ? <CloseCircleOutlined /> : null}
-        >
-          {s?.toUpperCase()}
-        </Tag>
-      ),
-    },
-    {
-      title:     "Uploaded",
-      dataIndex: "createdAt",
-      key:       "date",
-      render:    (d) => new Date(d).toLocaleDateString("en-IN"),
-    },
-    {
-      title:  "Action",
-      key:    "action",
-      render: (_, record) => (
-        <Popconfirm
-          title="Delete this document?"
-          onConfirm={() => handleDelete(record._id)}
-          okText="Yes"
-          cancelText="No"
-        >
-          <Button danger size="small" icon={<DeleteOutlined />} />
-        </Popconfirm>
-      ),
+      title: "Filed On", dataIndex: "submittedAt", key: "date",
+      render: (d) => d ? new Date(d).toLocaleDateString("en-IN") : "—",
     },
   ];
 
+  const clientColumns = [
+    { title: "Client", dataIndex: "fullName", key: "fullName" },
+    { title: "PAN",     dataIndex: "pan",      key: "pan",  render: (v) => <Text code style={{ fontSize: 11 }}>{v}</Text> },
+    {
+      title: "Filing Status", key: "status",
+      render: (_, r) => r.latestFiling
+        ? <Tag color={STATUS_COLOR[r.latestFiling.status]}>{r.latestFiling.status?.toUpperCase()}</Tag>
+        : <Tag>No Filing</Tag>,
+    },
+  ];
+
+  // ── Quick-stat row — fourth stat is role-specific ──────────────────────────
+  const roleStat = isTaxpayer
+    ? { title: "Filings Submitted", value: submittedCount, icon: <CheckCircleOutlined />, color: "#52c41a" }
+    : isCA
+      ? { title: "Total Clients", value: clients.length, icon: <TeamOutlined />, color: "#722ed1" }
+      : { title: "Platform Users", value: adminStats?.totalUsers ?? "—", icon: <TeamOutlined />, color: "#722ed1" };
+
   return (
     <div>
-      <PageHeader icon={<UserOutlined />} title="My Profile" subtitle="Account details and document vault" />
+      <PageHeader
+        icon={<UserOutlined />}
+        title="My Profile"
+        subtitle="Your account details and activity overview"
+      />
+
+      {/* Quick stats */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {[
+          { title: "Role", value: ROLE_LABEL[user?.role] || "—", icon: <CrownOutlined />, color: "#1677ff", valueStyle: { fontSize: 18 } },
+          { title: "PAN", value: user?.pan || "—", icon: <SafetyCertificateOutlined />, color: "#fa8c16", valueStyle: { fontSize: 18 } },
+          { title: "Filing Period", value: "AY 2026-27", icon: <FileDoneOutlined />, color: "#13c2c2", valueStyle: { fontSize: 18 } },
+          roleStat,
+        ].map(({ title, value, icon, color, valueStyle }) => (
+          <Col xs={12} sm={6} key={title}>
+            <Card variant="borderless" style={{ borderRadius: 10 }} hoverable>
+              <Statistic
+                title={title}
+                value={value}
+                prefix={React.cloneElement(icon, { style: { color } })}
+                valueStyle={{ color, ...(valueStyle || {}) }}
+              />
+            </Card>
+          </Col>
+        ))}
+      </Row>
 
       <Row gutter={[24, 24]}>
-        {/* ── Profile Details ─────────────────────────── */}
-        <Col xs={24} lg={8}>
+        {/* ── Account Details ──────────────────────────── */}
+        <Col xs={24} lg={10}>
           <Card
             variant="borderless"
-            style={{ borderRadius: 10 }}
+            style={{ borderRadius: 10, height: "100%" }}
             title={
               <Space>
                 <UserOutlined />
@@ -154,51 +172,119 @@ export default function Profile() {
                   ? new Date(user.createdAt).toLocaleDateString("en-IN")
                   : "—"}
               </Descriptions.Item>
+              {isCA && user?.caFirmName && (
+                <Descriptions.Item label="Firm">
+                  {user.caFirmName}
+                </Descriptions.Item>
+              )}
             </Descriptions>
-
-            <Divider />
-
-            {/* Filing year badge */}
-            <div className="flex justify-between items-center">
-              <Text type="secondary">Current Filing Period</Text>
-              <Space>
-                <Tag color="green">FY 2025-26</Tag>
-                <Tag color="blue">AY 2026-27</Tag>
-              </Space>
-            </div>
           </Card>
         </Col>
 
-        {/* ── Document Vault ──────────────────────────── */}
-        <Col xs={24} lg={16}>
-          <Card
-            variant="borderless"
-            style={{ borderRadius: 10 }}
-            title={
-              <Space>
-                <FileTextOutlined />
-                <span>My Documents</span>
-                <Badge count={documents.length} color="#1677ff" />
-              </Space>
-            }
-          >
-            <Alert
-              message="Upload Form 16, 26AS, or AIS from the File ITR page — uploaded documents appear here for your records."
-              type="info"
-              icon={<InfoCircleOutlined />}
-              showIcon
-              style={{ marginBottom: 16, borderRadius: 8 }}
-            />
-            <Table
-              dataSource={documents}
-              columns={docColumns}
-              rowKey="_id"
-              loading={docsLoading}
-              pagination={{ pageSize: 8 }}
-              size="small"
-              locale={{ emptyText: "No documents uploaded yet" }}
-            />
-          </Card>
+        {/* ── Role-specific activity ───────────────────── */}
+        <Col xs={24} lg={14}>
+          {isTaxpayer && (
+            <Card
+              variant="borderless"
+              style={{ borderRadius: 10, height: "100%" }}
+              title={
+                <Space>
+                  <FileTextOutlined />
+                  <span>My Filings</span>
+                </Space>
+              }
+              extra={
+                <Button type="link" icon={<ArrowRightOutlined />} onClick={() => navigate("/dashboard")} style={{ padding: 0 }}>
+                  Go to Dashboard
+                </Button>
+              }
+            >
+              <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+                <Col span={12}>
+                  <Card variant="borderless" style={{ borderRadius: 8, textAlign: "center", background: token.colorFillTertiary }}>
+                    <Statistic title="Drafts in Progress" value={draftCount} valueStyle={{ color: "#faad14", fontSize: 22 }} prefix={<ClockCircleOutlined />} />
+                  </Card>
+                </Col>
+                <Col span={12}>
+                  <Card variant="borderless" style={{ borderRadius: 8, textAlign: "center", background: token.colorFillTertiary }}>
+                    <Statistic title="Submitted" value={submittedCount} valueStyle={{ color: "#52c41a", fontSize: 22 }} prefix={<CheckCircleOutlined />} />
+                  </Card>
+                </Col>
+              </Row>
+              <Table
+                dataSource={filings.slice(0, 5)}
+                columns={filingColumns}
+                rowKey="_id"
+                loading={loading}
+                pagination={false}
+                size="small"
+                locale={{ emptyText: <Empty description="No filings yet" /> }}
+              />
+            </Card>
+          )}
+
+          {isCA && (
+            <Card
+              variant="borderless"
+              style={{ borderRadius: 10, height: "100%" }}
+              title={
+                <Space>
+                  <TeamOutlined />
+                  <span>My Clients</span>
+                </Space>
+              }
+              extra={
+                <Button type="link" icon={<ArrowRightOutlined />} onClick={() => navigate("/dashboard")} style={{ padding: 0 }}>
+                  Go to CA Dashboard
+                </Button>
+              }
+            >
+              <Table
+                dataSource={clients.slice(0, 5)}
+                columns={clientColumns}
+                rowKey="_id"
+                loading={loading}
+                pagination={false}
+                size="small"
+                locale={{ emptyText: <Empty description="No clients yet" /> }}
+              />
+            </Card>
+          )}
+
+          {isAdmin && (
+            <Card
+              variant="borderless"
+              style={{ borderRadius: 10, height: "100%" }}
+              title={
+                <Space>
+                  <CrownOutlined />
+                  <span>Platform Overview</span>
+                </Space>
+              }
+              extra={
+                <Button type="link" icon={<ArrowRightOutlined />} onClick={() => navigate("/dashboard")} style={{ padding: 0 }}>
+                  Go to Admin Panel
+                </Button>
+              }
+            >
+              {loading ? (
+                <div style={{ textAlign: "center", padding: 40 }}><Spin /></div>
+              ) : (
+                <Row gutter={[12, 12]}>
+                  <Col span={12}>
+                    <Card variant="borderless" style={{ borderRadius: 8, textAlign: "center", background: token.colorFillTertiary }}>
+                      <Statistic title="Total Users" value={adminStats?.totalUsers ?? "—"} valueStyle={{ color: "#1677ff", fontSize: 22 }} prefix={<TeamOutlined />} />
+                    </Card>
+                  </Col>
+                  <Col span={12}>
+                    <Card variant="borderless" style={{ borderRadius: 8, textAlign: "center", background: token.colorFillTertiary }}>
+                      <Statistic title="Documents Uploaded" value={adminStats?.totalDocs ?? "—"} valueStyle={{ color: "#722ed1", fontSize: 22 }} prefix={<FileTextOutlined />} />
+                    </Card>
+                  </Col>
+                </Row>
+              )}
+            </Card>
+          )}
         </Col>
       </Row>
     </div>

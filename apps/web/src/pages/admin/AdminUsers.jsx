@@ -3,6 +3,7 @@ import {
   Table, Tag, Button, Input, Space, Select,
   Typography, Popconfirm, message, Card, Row, Col,
   Drawer, Avatar, Descriptions, Badge, Divider, Alert, Tooltip,
+  theme as antdTheme,
 } from "antd";
 import {
   SearchOutlined, StopOutlined, CheckOutlined,
@@ -39,6 +40,7 @@ const initials = (name) =>
 const avatarColor = (str) => AVATAR_COLORS[(str?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 
 export default function AdminUsers() {
+  const { token } = antdTheme.useToken();
   const { user: currentUser } = useAuthStore();
   const [data, setData]       = useState({ users: [], total: 0 });
   const [loading, setLoading] = useState(false);
@@ -98,7 +100,7 @@ export default function AdminUsers() {
           </Avatar>
           <div>
             <div style={{ fontWeight: 600, fontSize: 13 }}>{r.fullName}</div>
-            <div style={{ color: "#8c8c8c", fontSize: 11 }}>{r.email}</div>
+            <div style={{ color: token.colorTextSecondary, fontSize: 11 }}>{r.email}</div>
           </div>
         </Space>
       ),
@@ -212,7 +214,6 @@ export default function AdminUsers() {
             onClick: () => openDrawer(record),
             style:   { cursor: "pointer" },
           })}
-          rowClassName="hover:bg-gray-50"
         />
       </Card>
 
@@ -229,7 +230,7 @@ export default function AdminUsers() {
               </Avatar>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{drawerUser.fullName}</div>
-                <div style={{ color: "#8c8c8c", fontSize: 12, fontWeight: 400 }}>{drawerUser.pan}</div>
+                <div style={{ color: token.colorTextSecondary, fontSize: 12, fontWeight: 400 }}>{drawerUser.pan}</div>
               </div>
             </Space>
           ) : "User Details"

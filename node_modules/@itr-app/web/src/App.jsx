@@ -10,6 +10,7 @@ const Register   = React.lazy(() => import("./pages/auth/Register.jsx"));
 const Dashboard  = React.lazy(() => import("./pages/dashboard/Dashboard.jsx"));
 const TaxCalculator   = React.lazy(() => import("./pages/calculator/TaxCalculator.jsx"));
 const ITR1Filing      = React.lazy(() => import("./pages/filing/itr1/ITR1Filing.jsx"));
+const ITR2Filing      = React.lazy(() => import("./pages/filing/itr2/ITR2Filing.jsx"));
 const EFilingPage     = React.lazy(() => import("./pages/filing/efiling/EFilingPage.jsx"));
 const CADashboard     = React.lazy(() => import("./pages/ca/CADashboard.jsx"));
 const AddEditClient   = React.lazy(() => import("./pages/ca/clients/AddEditClient.jsx"));
@@ -17,6 +18,7 @@ const ClientWorkspace = React.lazy(() => import("./pages/ca/clients/ClientWorksp
 const CAITRFiling     = React.lazy(() => import("./pages/ca/filing/CAITRFiling.jsx"));
 const ApprovePage     = React.lazy(() => import("./pages/approve/ApprovePage.jsx"));
 const JoinFirm        = React.lazy(() => import("./pages/auth/JoinFirm.jsx"));
+const JoinClientPortal = React.lazy(() => import("./pages/auth/JoinClientPortal.jsx"));
 
 const NotFound   = () => (
   <div className="flex flex-col items-center justify-center h-64">
@@ -85,6 +87,8 @@ export default function App() {
         <Route path="/approve/:token"   element={<ApprovePage />} />
         {/* Public CA invite acceptance — no auth required */}
         <Route path="/join-firm/:token" element={<JoinFirm />} />
+        {/* Public Client Portal invite acceptance — no auth required */}
+        <Route path="/client-portal/join/:token" element={<JoinClientPortal />} />
 
         {/* Protected — wrapped in layout */}
         <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
@@ -93,6 +97,7 @@ export default function App() {
           <Route path="*"             element={<NotFound />} />
           <Route path="calculator"       element={<TaxCalculator />} />
           <Route path="filing/itr1"      element={<ITR1Filing />} />
+          <Route path="filing/itr2"      element={<ITR2Filing />} />
           <Route path="efiling"           element={<EFilingPage />} />
           {/* CA Portal sub-routes — the landing page itself is now /dashboard */}
           <Route path="ca/dashboard"                        element={<Navigate to="/dashboard" replace />} />

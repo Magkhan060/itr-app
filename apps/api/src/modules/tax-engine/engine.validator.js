@@ -27,3 +27,10 @@ export const compareSchema = z.object({
   deductions:   deductionsSchema,
   dateOfBirth:  z.string().optional().nullable(),
 });
+
+export const compareCGSchema = compareSchema.extend({
+  capitalGains: z.object({
+    stcg111A: z.number().min(0).default(0),
+    ltcg112A: z.number().min(0).default(0),
+  }).default({}),
+});

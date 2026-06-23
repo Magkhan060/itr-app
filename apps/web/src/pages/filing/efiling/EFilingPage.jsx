@@ -3,6 +3,7 @@ import {
   Steps, Card, Button, Form, Input, Select, Row, Col,
   Typography, Alert, Space, Tag, Result, Spin, Divider,
   Descriptions, Statistic, Badge,
+  theme as antdTheme,
 } from "antd";
 import {
   SafetyCertificateOutlined, MobileOutlined, BankOutlined,
@@ -52,6 +53,7 @@ const STEPS = [
 
 export default function EFilingPage() {
   const { user }          = useAuthStore();
+  const { token }         = antdTheme.useToken();
   const navigate          = useNavigate();
   const [searchParams]    = useSearchParams();
   const filingIdParam     = searchParams.get("filingId");
@@ -147,7 +149,7 @@ export default function EFilingPage() {
             },
           ].map(({ label, value, color }) => (
             <Col xs={12} sm={6} key={label}>
-              <Card variant="borderless" style={{ borderRadius: 8, border: "1px solid #f0f0f0", textAlign: "center" }}>
+              <Card variant="borderless" style={{ borderRadius: 8, textAlign: "center" }}>
                 <Statistic
                   title={<Text style={{ fontSize: 11 }}>{label}</Text>}
                   value={fmt(value)}
@@ -257,15 +259,15 @@ export default function EFilingPage() {
                   style={{
                     padding:      16,
                     borderRadius: 10,
-                    border:       `2px solid ${evcMethod === m.value ? "#1677ff" : "#f0f0f0"}`,
-                    background:   evcMethod === m.value ? "#e6f4ff" : "#fff",
+                    border:       `2px solid ${evcMethod === m.value ? token.colorPrimary : token.colorBorderSecondary}`,
+                    background:   evcMethod === m.value ? token.colorPrimaryBg : token.colorBgContainer,
                     cursor:       "pointer",
                     transition:   "all 0.2s",
                   }}
                 >
-                  <div style={{ fontSize: 22, color: "#1677ff", marginBottom: 8 }}>{m.icon}</div>
+                  <div style={{ fontSize: 22, color: token.colorPrimary, marginBottom: 8 }}>{m.icon}</div>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>{m.label}</div>
-                  <div style={{ color: "#8c8c8c", fontSize: 12 }}>{m.desc}</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>{m.desc}</Text>
                 </div>
               </Col>
             ))}

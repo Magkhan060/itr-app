@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Row, Col, Card, Statistic, Table, Tag,
   Typography, Spin, Alert, Avatar, Space,
+  theme as antdTheme,
 } from "antd";
 import {
   UserOutlined, FileOutlined, TeamOutlined,
@@ -16,6 +17,7 @@ const initials = (name) =>
 const AVATAR_COLORS = ["#1677ff", "#52c41a", "#fa8c16", "#722ed1", "#eb2f96"];
 
 export default function AdminDashboard() {
+  const { token } = antdTheme.useToken();
   const [stats, setStats]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
@@ -44,7 +46,7 @@ export default function AdminDashboard() {
           </Avatar>
           <div>
             <div style={{ fontWeight: 600, fontSize: 13 }}>{r.fullName}</div>
-            <div style={{ color: "#8c8c8c", fontSize: 11 }}>{r.email}</div>
+            <div style={{ color: token.colorTextSecondary, fontSize: 11 }}>{r.email}</div>
           </div>
         </Space>
       ),
@@ -78,16 +80,16 @@ export default function AdminDashboard() {
       {/* Stats row — platform-management metrics only, no filing content */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         {[
-          { title: "Total Users",        value: stats.totalUsers, icon: <TeamOutlined />, color: "#1677ff", bg: "#e6f4ff" },
-          { title: "Documents Uploaded", value: stats.totalDocs,  icon: <FileOutlined />, color: "#722ed1", bg: "#f9f0ff" },
-        ].map(({ title, value, icon, color, bg }) => (
+          { title: "Total Users",        value: stats.totalUsers, icon: <TeamOutlined />, color: "#1677ff" },
+          { title: "Documents Uploaded", value: stats.totalDocs,  icon: <FileOutlined />, color: "#722ed1" },
+        ].map(({ title, value, icon, color }) => (
           <Col xs={12} lg={6} key={title}>
             <Card variant="borderless" style={{ borderRadius: 10 }} hoverable>
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                 <div
                   style={{
                     width: 48, height: 48, borderRadius: 12,
-                    background: bg, display: "flex",
+                    background: token.colorFillTertiary, display: "flex",
                     alignItems: "center", justifyContent: "center",
                     fontSize: 22, color, flexShrink: 0,
                   }}

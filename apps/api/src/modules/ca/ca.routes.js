@@ -7,6 +7,7 @@ import { requireFeature } from "../../middleware/featureFlag.middleware.js";
 import * as clientCtrl  from "./ca-client.controller.js";
 import * as profileCtrl from "./ca-profile.controller.js";
 import * as inviteCtrl  from "./ca-invite.controller.js";
+import * as clientInviteCtrl from "./client-invite.controller.js";
 import * as filingCtrl  from "../itr/filing.controller.js";
 
 const router = Router();
@@ -32,6 +33,10 @@ router.get("/clients/:clientId",      clientCtrl.getClient);
 router.post("/clients",               requireCAWrite, clientCtrl.createClient);
 router.put("/clients/:clientId",      requireCAWrite, clientCtrl.updateClient);
 router.delete("/clients/:clientId",   requireCAWrite, clientCtrl.deleteClient);
+
+// ── Client Portal invites ─────────────────────────────────────────────────────
+router.post("/clients/:clientId/invite-portal", requireCAWrite, clientInviteCtrl.sendInvite);
+router.get("/clients/:clientId/invite-portal",  clientInviteCtrl.getInviteStatus);
 
 // ── CA Filing on behalf of a client ──────────────────────────────────────────
 // ca_staff can prepare drafts; only ca_admin can finalize the submission.

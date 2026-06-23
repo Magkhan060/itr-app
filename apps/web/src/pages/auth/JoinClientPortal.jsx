@@ -1,22 +1,19 @@
 import React, { useState, useEffect } from "react";
 import {
   Form, Input, Button, Typography,
-  DatePicker, message, Alert, Spin, Result, Tag, Space,
+  message, Alert, Spin, Result, Descriptions,
 } from "antd";
 import {
-  UserOutlined, LockOutlined, IdcardOutlined,
-  PhoneOutlined, TeamOutlined,
+  LockOutlined, IdcardOutlined, SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "../../store/index.js";
-import { getInviteInfo, acceptInvite } from "../../services/ca.service.js";
+import { getClientPortalInviteInfo, acceptClientPortalInvite } from "../../services/ca.service.js";
 import AuthSplitLayout from "../../components/auth/AuthSplitLayout.jsx";
 
 const { Title, Text } = Typography;
 
-const ROLE_LABEL = { ca_staff: "Team Member", ca_readonly: "Read-Only Viewer" };
-
-export default function JoinFirm() {
+export default function JoinClientPortal() {
   const { token } = useParams();
   const navigate   = useNavigate();
   const { setToken, setUser } = useAuthStore();
@@ -28,7 +25,7 @@ export default function JoinFirm() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    getInviteInfo(token)
+    getClientPortalInviteInfo(token)
       .then((res) => setInvite(res.data))
       .catch((err) => setError(err.response?.data?.error || "This invite link is invalid or has expired."))
       .finally(() => setLoading(false));
@@ -38,19 +35,16 @@ export default function JoinFirm() {
     setSubmitting(true);
     try {
       const payload = {
-        pan:         values.pan.toUpperCase(),
-        fullName:    values.fullName,
-        mobile:      values.mobile,
-        password:    values.password,
-        dateOfBirth: values.dateOfBirth?.format("YYYY-MM-DD"),
+        pan:      values.pan.toUpperCase(),
+        password: values.password,
       };
-      const res = await acceptInvite(token, payload);
+      const res = await acceptClientPortalInvite(token, payload);
       setToken(res.data.token);
       setUser(res.data.user);
-      message.success("Account created — welcome to the team!");
+      message.success("Account created — welcome to the portal!");
       navigate("/dashboard");
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
     } finally {
       setSubmitting(false);
     }
@@ -75,24 +69,33 @@ export default function JoinFirm() {
   }
 
   return (
-    <AuthSplitLayout maxWidth={480}>
+    <AuthSplitLayout maxWidth={440}>
       <div style={{ marginBottom: 24 }}>
-        <Title level={3} style={{ margin: 0 }}>Join {invite.firmName || "the Firm"}</Title>
-        <Space>
-          <Text type="secondary">You've been invited as a</Text>
-          <Tag icon={<TeamOutlined />} color="blue">{ROLE_LABEL[invite.role] || invite.role}</Tag>
-        </Space>
+        <Title level={3} style={{ margin: 0 }}>Set Up Your Account</Title>
+        <Text type="secondary">
+          Invited by {invite.caName || "your CA"}{invite.firmName ? ` (${invite.firmName})` : ""}
+        </Text>
       </div>
+
+      <Descriptions column={1} size="small" bordered style={{ marginBottom: 20 }}>
+        <Descriptions.Item label="Name">{invite.fullName}</Descriptions.Item>
+        <Descriptions.Item label="Email">{invite.email}</Descriptions.Item>
+      </Descriptions>
 
       {error && (
         <Alert message={error} type="error" showIcon closable onClose={() => setError(null)} style={{ marginBottom: 20 }} />
       )}
 
-      <Form form={form} layout="vertical" onFinish={onFinish} size="large">
-        <Form.Item label="Email">
-          <Input value={invite.email} disabled />
-        </Form.Item>
+      <Alert
+        type="info"
+        showIcon
+        icon={<SafetyCertificateOutlined />}
+        message="Confirm your PAN to verify your identity"
+        description={`We have ${invite.pan} on file with your CA. Enter your full PAN to continue.`}
+        style={{ marginBottom: 20, borderRadius: 8 }}
+      />
 
+      <Form form={form} layout="vertical" onFinish={onFinish} size="large">
         <Form.Item
           name="pan"
           label="PAN Number"
@@ -107,22 +110,6 @@ export default function JoinFirm() {
             maxLength={10}
             onChange={(e) => form.setFieldValue("pan", e.target.value.toUpperCase())}
           />
-        </Form.Item>
-
-        <Form.Item name="fullName" label="Full Name" rules={[{ required: true, message: "Full name is required" }, { min: 3 }]}>
-          <Input prefix={<UserOutlined />} placeholder="Your full name" />
-        </Form.Item>
-
-        <Form.Item name="dateOfBirth" label="Date of Birth">
-          <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" disabledDate={(d) => d && d.isAfter(new Date())} />
-        </Form.Item>
-
-        <Form.Item
-          name="mobile"
-          label="Mobile Number"
-          rules={[{ required: true }, { pattern: /^[6-9]\d{9}$/, message: "Invalid Indian mobile number" }]}
-        >
-          <Input prefix={<PhoneOutlined />} addonBefore="+91" placeholder="9876543210" maxLength={10} />
         </Form.Item>
 
         <Form.Item
@@ -156,7 +143,7 @@ export default function JoinFirm() {
         </Form.Item>
 
         <Button type="primary" htmlType="submit" block size="large" loading={submitting}>
-          Create Account & Join
+          Create Account
         </Button>
       </Form>
     </AuthSplitLayout>

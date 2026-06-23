@@ -61,6 +61,14 @@ const userSchema = new mongoose.Schema(
       ref:     "CAFirm",
       default: null,
     },
+    // Set for a taxpayer who accepted a Client Portal invite — links this
+    // account to the CAClient record their CA already maintains, so they can
+    // view (read-only) the filings prepared on their behalf.
+    linkedCAClientId: {
+      type:    mongoose.Schema.Types.ObjectId,
+      ref:     "CAClient",
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -81,6 +89,7 @@ userSchema.methods.toSafeObject = function (firm = null) {
     caFirmId:    this.caFirmId || null,
     caFirmName:  firm?.firmName     || null,
     caMemberNo:  firm?.icaiMemberNo || null,
+    linkedCAClientId: this.linkedCAClientId || null,
   };
 };
 

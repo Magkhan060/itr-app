@@ -8,7 +8,9 @@ import {
   CheckCircleOutlined, ClockCircleOutlined,
   BankOutlined, FileSearchOutlined,
 } from "@ant-design/icons";
+import { useSearchParams } from "react-router-dom";
 import { getMyFilings } from "../../services/filing.service.js";
+import { getPortalFilings, getPortalRefundStatus } from "../../services/client-portal.service.js";
 import api from "../../services/api.js";
 import PageHeader from "../../components/PageHeader.jsx";
 
@@ -21,6 +23,7 @@ const fmt = (n) =>
   }).format(n || 0);
 
 export default function RefundTracker() {
+  const [searchParams]            = useSearchParams();
   const [filings, setFilings]     = useState([]);
   const [selected, setSelected]   = useState(null);
   const [status, setStatus]       = useState(null);
@@ -28,24 +31,40 @@ export default function RefundTracker() {
   const [fetching, setFetching]   = useState(true);
 
   useEffect(() => {
-    getMyFilings()
-      .then((res) => {
-        const all = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
-        const submitted = all.filter((f) => f.status !== "draft");
-        setFilings(submitted);
-        if (submitted.length > 0) setSelected(submitted[0]._id);
-      })
-      .finally(() => setFetching(false));
+    const preselectId = searchParams.get("id");
+    const preselectSource = searchParams.get("source");
+
+    Promise.all([
+      getMyFilings().catch(() => ({ data: [] })),
+      getPortalFilings().catch(() => ({ data: [] })),
+    ]).then(([ownRes, portalRes]) => {
+      const own    = (Array.isArray(ownRes.data) ? ownRes.data : []).filter((f) => f.status !== "draft")
+        .map((f) => ({ ...f, _source: "own" }));
+      const portal = (Array.isArray(portalRes.data) ? portalRes.data : []).filter((f) => f.status !== "draft")
+        .map((f) => ({ ...f, _source: "portal" }));
+      const all = [...own, ...portal];
+      setFilings(all);
+
+      if (preselectId && all.some((f) => f._id === preselectId)) {
+        setSelected(preselectId);
+      } else if (all.length > 0) {
+        setSelected(all[0]._id);
+      }
+    }).finally(() => setFetching(false));
   }, []);
 
   useEffect(() => {
     if (!selected) return;
+    const filing = filings.find((f) => f._id === selected);
     setLoading(true);
-    api.get(`/filing/${selected}/refund`)
+    const request = filing?._source === "portal"
+      ? getPortalRefundStatus(selected)
+      : api.get(`/filing/${selected}/refund`);
+    request
       .then((res) => setStatus(res.data))
       .catch(() => setStatus(null))
       .finally(() => setLoading(false));
-  }, [selected]);
+  }, [selected, filings]);
 
   const STAGE_ICONS = {
     SUBMITTED:         <FileSearchOutlined />,
@@ -80,6 +99,7 @@ export default function RefundTracker() {
                   <Option key={f._id} value={f._id}>
                     {f.itrType} — AY {f.assessmentYear} —{" "}
                     <Tag color="blue">{f.acknowledgementNo}</Tag>
+                    {f._source === "portal" && <Tag color="cyan" style={{ marginLeft: 4 }}>Filed by CA</Tag>}
                   </Option>
                 ))}
               </Select>

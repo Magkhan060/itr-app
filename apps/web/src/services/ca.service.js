@@ -27,6 +27,12 @@ export const toggleMemberActive = (userId, isActive)        => api.patch(`/ca/us
 export const getInviteInfo = (token)       => api.get(`/invites/${token}`);
 export const acceptInvite  = (token, data) => api.post(`/invites/${token}/accept`, data);
 
+// ── Client Portal invites ────────────────────────────────────────────────────
+export const sendClientPortalInvite      = (clientId)       => api.post(`/ca/clients/${clientId}/invite-portal`);
+export const getClientPortalInviteStatus = (clientId)       => api.get(`/ca/clients/${clientId}/invite-portal`);
+export const getClientPortalInviteInfo   = (token)          => api.get(`/client-invites/${token}`);
+export const acceptClientPortalInvite    = (token, data)    => api.post(`/client-invites/${token}/accept`, data);
+
 // ── Approvals ─────────────────────────────────────────────────────────────────
 export const sendApproval         = (filingId)                  => api.post("/approvals/send", { filingId });
 export const getApprovalSummary   = (token)                     => api.get(`/approvals/${token}`);

@@ -57,6 +57,79 @@ const itr1DataSchema = new mongoose.Schema({
   taxComputation:     { type: mongoose.Schema.Types.Mixed },
 }, { _id: false });
 
+const housePropertySchema = new mongoose.Schema({
+  type:            { type: String, enum: ["self_occupied", "let_out"], required: true },
+  address:         { type: String },
+  annualRent:      { type: Number, default: 0 },   // let_out only
+  municipalTax:    { type: Number, default: 0 },   // let_out only
+  interestOnLoan:  { type: Number, default: 0 },
+}, { _id: false });
+
+// ITR-2 — same personal/salary/deduction shape as ITR-1, plus multiple house
+// properties (ITR-1 only supports one self-occupied property) and equity
+// capital gains (Sec 111A STCG / Sec 112A LTCG — aggregate figures, not a
+// transaction-level ledger; see CLAUDE.md "Client Portal"-style scope note).
+const itr2DataSchema = new mongoose.Schema({
+  // Personal
+  fullName:             { type: String, required: true },
+  pan:                  { type: String, required: true },
+  dateOfBirth:          { type: Date   },
+  gender:               { type: String, enum: ["M","F","T"] },
+  residentialStatus:    { type: String, default: "ROR" },
+  fatherName:           { type: String },
+  // Address
+  addressLine1:         { type: String },
+  city:                 { type: String },
+  pinCode:              { type: String },
+  // Contact (linked to Aadhaar for EVC)
+  mobile:               { type: String },
+  aadhaarEncrypted:     { type: String },
+  // Employer & banking
+  employerName:         { type: String },
+  employerTAN:          { type: String },
+  bankAccountEncrypted: { type: String },
+  ifscCode:             { type: String },
+
+  // Income — salary (same breakdown as ITR-1)
+  basicSalary:        { type: Number, default: 0 },
+  hra_received:       { type: Number, default: 0 },
+  specialAllowance:   { type: Number, default: 0 },
+  bonus:              { type: Number, default: 0 },
+  grossSalary:        { type: Number, default: 0 },  // derived server-side
+  professionalTax:    { type: Number, default: 0 },
+  tdsDeducted:        { type: Number, default: 0 },
+  interestIncome:     { type: Number, default: 0 },
+  otherIncome:        { type: Number, default: 0 },
+  tdsEntries:         [tdsEntrySchema],
+
+  // Income — house property (multiple, unlike ITR-1's single self-occupied)
+  houseProperties:    [housePropertySchema],
+  housePropertyNetIncome: { type: Number, default: 0 },  // derived server-side, can be negative (loss)
+
+  // Income — equity capital gains (aggregate, not transaction-level)
+  capitalGains: {
+    stcg111A: { type: Number, default: 0 },
+    ltcg112A: { type: Number, default: 0 },
+  },
+
+  // Deductions (Chapter VI-A — identical to ITR-1, minus homeLoanInterest:
+  // house property interest is captured per-property in houseProperties[]
+  // above instead, so it isn't double-counted as a separate deduction here).
+  sec80C:             { type: Number, default: 0 },
+  sec80CCD1B:         { type: Number, default: 0 },
+  sec80D_self:        { type: Number, default: 0 },
+  sec80D_parents:     { type: Number, default: 0 },
+  hra_exempt:         { type: Number, default: 0 },
+  lta:                { type: Number, default: 0 },
+  sec80TTA_TTB:       { type: Number, default: 0 },
+  sec80G_cash:        { type: Number, default: 0 },
+  sec80G_cheque:      { type: Number, default: 0 },
+
+  // Tax computation result — shape from compareRegimesWithCapitalGains()
+  selectedRegime:     { type: String, enum: ["old","new"], default: "new" },
+  taxComputation:     { type: mongoose.Schema.Types.Mixed },
+}, { _id: false });
+
 const filingSchema = new mongoose.Schema(
   {
     userId: {
@@ -84,6 +157,7 @@ const filingSchema = new mongoose.Schema(
       default: "draft",
     },
     itr1Data:      itr1DataSchema,
+    itr2Data:      itr2DataSchema,
     submittedAt:   { type: Date },
     acknowledgementNo: { type: String },
 

@@ -1,6 +1,6 @@
 import Filing from "./filing.model.js";
-import { compareRegimes } from "../tax-engine/engine.service.js";
-import { CURRENT_AY } from "@itr-app/shared-types";
+import { compareRegimes, compareRegimesWithCapitalGains } from "../tax-engine/engine.service.js";
+import { CURRENT_AY, DEDUCTION_LIMITS } from "@itr-app/shared-types";
 import { encrypt, decrypt } from "../../utils/encryption.js";
 import crypto from "crypto";
 
@@ -34,10 +34,15 @@ const decryptPII = (itr1Data) => {
   return result;
 };
 
+// Decrypts whichever of itr1Data/itr2Data is present on a filing — only one
+// will ever be set, since itrType determines which subdocument is in use.
 const withDecryptedPII = (filing) => {
   if (!filing) return filing;
   const plain = filing.toObject ? filing.toObject() : filing;
-  return { ...plain, itr1Data: decryptPII(plain.itr1Data) };
+  const result = { ...plain };
+  if (result.itr1Data) result.itr1Data = decryptPII(result.itr1Data);
+  if (result.itr2Data) result.itr2Data = decryptPII(result.itr2Data);
+  return result;
 };
 
 // Gross salary is derived from the Form 16 Part B breakdown rather than entered
@@ -49,6 +54,37 @@ const computeGrossSalary = (incomeDetails) =>
   (incomeDetails.specialAllowance || 0) +
   (incomeDetails.bonus            || 0);
 
+// Splits house property figures into two pieces that must be fed into the tax
+// engine differently:
+//   - letOutNetIncome: rent minus municipal tax minus the flat 30% standard
+//     deduction minus loan interest. Deductible identically in BOTH regimes
+//     (Sec 24(b) interest on let-out property is not regime-restricted), so
+//     this is safe to add directly into "otherIncome".
+//   - selfOccupiedInterest: only deductible under the OLD regime (capped at
+//     ₹2,00,000 combined per Sec 24(b)); disallowed entirely under the new
+//     regime. This must NOT be blended into otherIncome (which the engine
+//     treats identically for both regimes when comparing old vs new) — it's
+//     passed through as deductions.homeLoanInterest instead, so the engine's
+//     already-correct per-regime capping (computeOldRegimeDeductions caps at
+//     200000; the new-regime branch zeroes all deductions) applies properly
+//     and the old-vs-new comparison stays fair to both regimes.
+const computeHousePropertyBreakdown = (houseProperties = []) => {
+  let selfOccupiedInterest = 0;
+  let letOutNetIncome = 0;
+
+  for (const p of houseProperties) {
+    if (p.type === "self_occupied") {
+      selfOccupiedInterest += p.interestOnLoan || 0;
+    } else {
+      const nav = Math.max(0, (p.annualRent || 0) - (p.municipalTax || 0));
+      const standardDeduction = nav * 0.30;
+      letOutNetIncome += nav - standardDeduction - (p.interestOnLoan || 0);
+    }
+  }
+
+  return { letOutNetIncome, selfOccupiedInterest };
+};
+
 // ── Service functions ──────────────────────────────────────────────────────
 
 export const saveDraft = async (userId, { itrType, assessmentYear, step, data }) => {
@@ -57,10 +93,14 @@ export const saveDraft = async (userId, { itrType, assessmentYear, step, data })
   // userId as the CA who prepared them (see resolveOwnerUserId in ca-firm.service.js).
   const filter = { userId, itrType, assessmentYear, caClientId: null };
 
+  // itrType selects which subdocument the draft is stored under — itr1Data
+  // for ITR-1, itr2Data for ITR-2.
+  const dataField = itrType === "ITR-2" ? "itr2Data" : "itr1Data";
+
   const update = {
     $set: {
-      status:   "draft",
-      itr1Data: encryptPII(data),
+      status:        "draft",
+      [dataField]:   encryptPII(data),
     },
   };
 
@@ -129,11 +169,79 @@ export const submitITR1 = async (userId, { personalInfo, incomeDetails, deductio
   };
 };
 
+// ── ITR-2 ─────────────────────────────────────────────────────────────────────
+
+export const submitITR2 = async (userId, { personalInfo, incomeDetails, houseProperties, capitalGains, deductions, selectedRegime }) => {
+  // Recompute tax server-side — never trust client tax values
+  const grossIncome = computeGrossSalary(incomeDetails);
+  const { letOutNetIncome, selfOccupiedInterest } = computeHousePropertyBreakdown(houseProperties);
+  const otherIncome = (incomeDetails.interestIncome || 0) + (incomeDetails.otherIncome || 0) + letOutNetIncome;
+
+  const taxResult = compareRegimesWithCapitalGains({
+    grossIncome,
+    otherIncome,
+    capitalGains,
+    deductions: { ...deductions, hra: deductions.hra_exempt, homeLoanInterest: selfOccupiedInterest },
+    dateOfBirth: personalInfo.dateOfBirth || null,
+  });
+
+  const selectedTax = taxResult[selectedRegime];
+
+  const ackNo = `ITR2${Date.now()}${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+
+  // caClientId: null — see saveDraft() above for why this guard is required.
+  const filter = {
+    userId,
+    itrType:        "ITR-2",
+    assessmentYear: CURRENT_AY,
+    caClientId:     null,
+  };
+
+  // Stored net income reflects the FINAL selected regime's self-occupied
+  // interest cap (₹2,00,000 old / 0 new) — the comparison above used the
+  // engine's own per-regime capping for both regimes simultaneously instead.
+  const cappedSelfOccupiedInterest = selectedRegime === "old"
+    ? Math.min(selfOccupiedInterest, 200000)
+    : 0;
+  const housePropertyNetIncome = letOutNetIncome - cappedSelfOccupiedInterest;
+
+  const rawItr2Data = {
+    ...personalInfo,
+    ...incomeDetails,
+    grossSalary: grossIncome,
+    houseProperties,
+    housePropertyNetIncome,
+    capitalGains,
+    ...deductions,
+    selectedRegime,
+    taxComputation: selectedTax,
+  };
+
+  const filing = await Filing.findOneAndUpdate(
+    filter,
+    {
+      $set: {
+        status:            "submitted",
+        itr2Data:          encryptPII(rawItr2Data),
+        submittedAt:       new Date(),
+        acknowledgementNo: ackNo,
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+
+  return {
+    filing:            withDecryptedPII(filing),
+    acknowledgementNo: ackNo,
+    taxSummary:        selectedTax,
+  };
+};
+
 export const getMyFilings = async (userId) => {
   // caClientId: null excludes filings the user prepared as a CA for their clients —
   // "my filings" means personal self-filed returns only.
   const filings = await Filing.find({ userId, caClientId: null }).sort({ createdAt: -1 }).lean();
-  return filings.map((f) => ({ ...f, itr1Data: decryptPII(f.itr1Data) }));
+  return filings.map((f) => withDecryptedPII(f));
 };
 
 export const getFilingById = async (userId, filingId) => {
@@ -189,5 +297,5 @@ export const submitITR1ForClient = async (caId, clientId, { personalInfo, income
 
 export const getClientFilings = async (caId, clientId) => {
   const filings = await Filing.find({ userId: caId, caClientId: clientId }).sort({ createdAt: -1 }).lean();
-  return filings.map((f) => ({ ...f, itr1Data: decryptPII(f.itr1Data) }));
+  return filings.map((f) => withDecryptedPII(f));
 };

@@ -11,16 +11,17 @@ const REFUND_STAGES = [
   { code: "REFUND_PAID",       label: "Refund Credited",       days: 60  },
 ];
 
-export const getRefundStatus = async (userId, filingId) => {
-  const filing = await Filing.findOne({ _id: filingId, userId });
-  if (!filing) throw Object.assign(new Error("Filing not found"), { status: 404 });
-
+// Pure computation over an already-fetched, already-authorized Filing doc —
+// callers own the ownership check (by userId for self-filed returns, by
+// caClientId for the read-only client portal) and pass the resulting doc in.
+export const computeRefundStatus = (filing) => {
   if (filing.status === "draft") {
     return { applicable: false, message: "ITR not yet submitted" };
   }
 
-  const taxData    = filing.itr1Data?.taxComputation;
-  const tdsData    = filing.itr1Data?.tdsDeducted || 0;
+  const data        = filing.itrType === "ITR-2" ? filing.itr2Data : filing.itr1Data;
+  const taxData    = data?.taxComputation;
+  const tdsData    = data?.tdsDeducted || 0;
   const totalTax   = taxData?.totalTax || 0;
   const refundAmt  = Math.max(0, tdsData - totalTax);
 
@@ -61,4 +62,10 @@ export const getRefundStatus = async (userId, filingId) => {
       ? new Date(submittedAt.getTime() + nextStage.days * 86400000).toISOString()
       : null,
   };
+};
+
+export const getRefundStatus = async (userId, filingId) => {
+  const filing = await Filing.findOne({ _id: filingId, userId });
+  if (!filing) throw Object.assign(new Error("Filing not found"), { status: 404 });
+  return computeRefundStatus(filing);
 };
