@@ -75,11 +75,37 @@ export const submitITR1ForClient = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+export const saveDraftITR2ForClient = async (req, res, next) => {
+  try {
+    const data    = saveDraftItr2Schema.parse(req.body);
+    const ownerId = await resolveOwnerUserId(req.userId, req.userRole);
+    const result  = await filingService.saveDraftForClient(ownerId, req.params.clientId, data, req.userId);
+    return response.success(res, result, "Draft saved");
+  } catch (err) { next(err); }
+};
+
+export const submitITR2ForClient = async (req, res, next) => {
+  try {
+    const data    = submitITR2Schema.parse(req.body);
+    const ownerId = await resolveOwnerUserId(req.userId, req.userRole);
+    const result  = await filingService.submitITR2ForClient(ownerId, req.params.clientId, data, req.userId);
+    return response.success(res, result, "ITR-2 submitted for client", 201);
+  } catch (err) { next(err); }
+};
+
 export const getClientFilings = async (req, res, next) => {
   try {
     const ownerId = await resolveOwnerUserId(req.userId, req.userRole);
     const result  = await filingService.getClientFilings(ownerId, req.params.clientId);
     return response.success(res, result, "Client filings fetched");
+  } catch (err) { next(err); }
+};
+
+export const getClientFilingRefund = async (req, res, next) => {
+  try {
+    const ownerId = await resolveOwnerUserId(req.userId, req.userRole);
+    const result  = await filingService.getClientFilingRefund(ownerId, req.params.clientId, req.params.filingId);
+    return response.success(res, result, "Refund status fetched");
   } catch (err) { next(err); }
 };
 

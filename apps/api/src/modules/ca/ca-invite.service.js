@@ -6,6 +6,7 @@ import CAFirm from "./ca-firm.model.js";
 import CAInvite from "./ca-invite.model.js";
 import { env } from "../../config/env.js";
 import { sendMail, caInviteEmail } from "../../utils/email.util.js";
+import { getFirmCommsConfig } from "./ca-firm.service.js";
 
 const INVITE_EXPIRY_DAYS = 7;
 const INVITE_ROLES = ["ca_staff", "ca_readonly"];
@@ -39,6 +40,7 @@ export const createInvite = async (caFirmId, invitedByUserId, { email, role }) =
   });
 
   const inviter = await User.findById(invitedByUserId).select("fullName").lean();
+  const { emailConfig } = await getFirmCommsConfig(caFirmId);
   await sendMail({
     to: normalizedEmail,
     ...caInviteEmail({
@@ -48,6 +50,7 @@ export const createInvite = async (caFirmId, invitedByUserId, { email, role }) =
       token:       invite.token,
       appUrl:      env.appUrl,
     }),
+    firmEmailConfig: emailConfig,
   });
 
   return invite;

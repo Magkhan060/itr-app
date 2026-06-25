@@ -1,7 +1,9 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
 
-const createTransport = () => {
+// Platform default — lazily created once, unchanged from before. Firms that
+// haven't configured their own SMTP override still go through this.
+const createGmailTransport = () => {
   if (!env.gmailUser || !env.gmailPass) return null;
   return nodemailer.createTransport({
     service: "gmail",
@@ -9,14 +11,37 @@ const createTransport = () => {
   });
 };
 
-const transporter = createTransport();
+const gmailTransport = createGmailTransport();
 
-export const sendMail = async ({ to, subject, html }) => {
-  if (!transporter) {
+// Generic SMTP — works for Office365, Zoho Mail, Amazon SES, SendGrid's SMTP
+// relay, or any firm's own mail server. Built fresh per call rather than
+// cached, since different firms have different configs (the platform
+// Gmail transport above is the one case where a single shared instance is
+// correct, since there's only ever one platform account).
+const buildSmtpTransport = ({ host, port, secure, user, pass }) =>
+  nodemailer.createTransport({
+    host,
+    port: Number(port),
+    secure: !!secure,
+    auth: { user, pass },
+  });
+
+// `firmEmailConfig` is the already-decrypted config object for a CAFirm that
+// configured its own SMTP server (see ca-firm.service.js's
+// getFirmCommsConfig) — undefined/null means "use the platform default",
+// exactly like the existing ITD-credential fallback pattern.
+export const sendMail = async ({ to, subject, html, firmEmailConfig }) => {
+  if (firmEmailConfig) {
+    const transport = buildSmtpTransport(firmEmailConfig);
+    const fromName = firmEmailConfig.fromName || "ITR Filing Portal";
+    return transport.sendMail({ from: `"${fromName}" <${firmEmailConfig.fromAddress}>`, to, subject, html });
+  }
+
+  if (!gmailTransport) {
     console.log(`[Email MOCK] To: ${to} | Subject: ${subject}`);
     return { mock: true };
   }
-  return transporter.sendMail({ from: `"ITR Filing Portal" <${env.gmailUser}>`, to, subject, html });
+  return gmailTransport.sendMail({ from: `"ITR Filing Portal" <${env.gmailUser}>`, to, subject, html });
 };
 
 // ── Templates ─────────────────────────────────────────────────────────────────

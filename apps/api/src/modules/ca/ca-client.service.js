@@ -26,7 +26,8 @@ export const getClient = async (caId, clientId) => {
     .select(
       "status approvalStatus approvalToken approvalSentAt approvalRespondedAt approvalComment " +
       "itrType assessmentYear acknowledgementNo efilingStatus itrVAckNo efiledAt submittedAt createdAt " +
-      "itr1Data.grossSalary itr1Data.tdsDeducted itr1Data.taxComputation itr1Data.selectedRegime"
+      "itr1Data.grossSalary itr1Data.tdsDeducted itr1Data.taxComputation itr1Data.selectedRegime " +
+      "itr2Data.grossSalary itr2Data.tdsDeducted itr2Data.taxComputation itr2Data.selectedRegime"
     )
     .lean();
 

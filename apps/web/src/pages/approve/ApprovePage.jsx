@@ -7,7 +7,7 @@ import {
 import {
   CheckCircleOutlined, CloseCircleOutlined,
   SafetyCertificateOutlined, ExclamationCircleOutlined,
-  FileDoneOutlined, BankOutlined, FileTextOutlined,
+  FileDoneOutlined, BankOutlined, FileTextOutlined, HomeOutlined,
 } from "@ant-design/icons";
 import { useParams, useSearchParams } from "react-router-dom";
 import { getApprovalSummary, respondToApproval } from "../../services/ca.service.js";
@@ -110,7 +110,7 @@ export default function ApprovePage() {
             title={result.status === "approved" ? "ITR Filing Approved!" : "Changes Requested"}
             subTitle={
               result.status === "approved"
-                ? "Your CA has been notified and will proceed with e-filing your ITR-1 with the Income Tax Department."
+                ? `Your CA has been notified and will proceed with e-filing your ${summary?.itrType || "ITR-1"} with the Income Tax Department.`
                 : "Your CA has been notified of your request for changes. They will contact you shortly."
             }
           />
@@ -147,7 +147,7 @@ export default function ApprovePage() {
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <FileDoneOutlined style={{ fontSize: 40, color: themeToken.colorPrimary }} />
-          <Title level={2} style={{ marginTop: 10, marginBottom: 4 }}>Review Your ITR-1</Title>
+          <Title level={2} style={{ marginTop: 10, marginBottom: 4 }}>Review Your {summary.itrType || "ITR-1"}</Title>
           <Text type="secondary">FY 2025-26 | AY {summary.assessmentYear}</Text>
         </div>
 
@@ -219,6 +219,58 @@ export default function ApprovePage() {
           </table>
         </Card>
 
+        {/* House Property & Capital Gains — ITR-2 only */}
+        {summary.itrType === "ITR-2" && (
+          <Card
+            variant="borderless"
+            style={{ borderRadius: 10, marginBottom: 16 }}
+            title={<Space><HomeOutlined /><span>House Property &amp; Capital Gains</span></Space>}
+            size="small"
+          >
+            {s.houseProperties?.length > 0 && (
+              <>
+                <Text strong style={{ fontSize: 12 }}>House Property</Text>
+                <Table
+                  size="small"
+                  pagination={false}
+                  rowKey={(_, i) => i}
+                  dataSource={s.houseProperties}
+                  style={{ margin: "8px 0 16px" }}
+                  columns={[
+                    { title: "Type", dataIndex: "type", render: (t) => <Tag>{t === "self_occupied" ? "Self-Occupied" : "Let-Out"}</Tag> },
+                    { title: "Address", dataIndex: "address", render: (a) => a || "—" },
+                    { title: "Annual Rent", dataIndex: "annualRent", render: (v) => fmt(v || 0) },
+                    { title: "Interest on Loan", dataIndex: "interestOnLoan", render: (v) => fmt(v || 0) },
+                  ]}
+                />
+                <div style={{ textAlign: "right", marginBottom: 16 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Net Income from House Property: </Text>
+                  <Text strong>{fmt(s.housePropertyNetIncome || 0)}</Text>
+                </div>
+              </>
+            )}
+            {s.capitalGains && (
+              <>
+                <Text strong style={{ fontSize: 12 }}>Equity Capital Gains</Text>
+                <Row gutter={[12, 12]} style={{ marginTop: 8 }}>
+                  {[
+                    { label: "STCG (Sec 111A)", value: s.capitalGains.stcg111A, tax: s.capitalGains.stcgTax },
+                    { label: "LTCG (Sec 112A)", value: s.capitalGains.ltcg112A, tax: s.capitalGains.ltcgTax },
+                  ].map(({ label, value, tax: cgTax }) => (
+                    <Col xs={12} key={label}>
+                      <div style={{ textAlign: "center", padding: "10px 4px", borderRadius: 8, background: themeToken.colorFillTertiary }}>
+                        <div style={{ fontSize: 11, color: themeToken.colorTextSecondary, marginBottom: 4 }}>{label}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{fmt(value || 0)}</div>
+                        <div style={{ fontSize: 11, color: themeToken.colorTextSecondary }}>Tax: {fmt(cgTax || 0)}</div>
+                      </div>
+                    </Col>
+                  ))}
+                </Row>
+              </>
+            )}
+          </Card>
+        )}
+
         {/* Tax computation & refund */}
         <Card
           variant="borderless"
@@ -259,7 +311,7 @@ export default function ApprovePage() {
         {!action ? (
           <Card variant="borderless" style={{ borderRadius: 10, textAlign: "center" }}>
             <Paragraph style={{ marginBottom: 24 }}>
-              Do you approve this ITR-1 filing to be submitted to the Income Tax Department on your behalf?
+              Do you approve this {summary.itrType || "ITR-1"} filing to be submitted to the Income Tax Department on your behalf?
             </Paragraph>
             <Space size={16}>
               <Button
@@ -287,7 +339,7 @@ export default function ApprovePage() {
             {action === "approve" ? (
               <>
                 <Title level={5} style={{ color: "#52c41a" }}>Confirm Approval</Title>
-                <Paragraph>By clicking Confirm, you authorise your CA to file this ITR-1 return with the Income Tax Department on your behalf.</Paragraph>
+                <Paragraph>By clicking Confirm, you authorise your CA to file this {summary.itrType || "ITR-1"} return with the Income Tax Department on your behalf.</Paragraph>
               </>
             ) : (
               <>

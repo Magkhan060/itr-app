@@ -8,13 +8,18 @@ export const updateClient   = (id, data)   => api.put(`/ca/clients/${id}`, data)
 export const deleteClient   = (id)         => api.delete(`/ca/clients/${id}`);
 
 // ── CA Filing on behalf of client ────────────────────────────────────────────
-export const saveDraftForClient   = (clientId, data) => api.post(`/ca/clients/${clientId}/draft`,  data);
-export const submitITR1ForClient  = (clientId, data) => api.post(`/ca/clients/${clientId}/submit`, data);
-export const getClientFilings     = (clientId)       => api.get(`/ca/clients/${clientId}/filings`);
+export const saveDraftForClient     = (clientId, data) => api.post(`/ca/clients/${clientId}/draft`,       data);
+export const submitITR1ForClient    = (clientId, data) => api.post(`/ca/clients/${clientId}/submit`,      data);
+export const saveDraftITR2ForClient = (clientId, data) => api.post(`/ca/clients/${clientId}/draft/itr2`,  data);
+export const submitITR2ForClient    = (clientId, data) => api.post(`/ca/clients/${clientId}/submit/itr2`, data);
+export const getClientFilings       = (clientId)       => api.get(`/ca/clients/${clientId}/filings`);
+export const getClientFilingRefund  = (clientId, filingId) => api.get(`/ca/clients/${clientId}/filings/${filingId}/refund`);
 
 // ── CA Profile ───────────────────────────────────────────────────────────────
 export const getCAProfile    = ()       => api.get("/ca/profile");
 export const updateCAProfile = (data)   => api.put("/ca/profile", data);
+export const sendTestEmail   = (to)     => api.post("/ca/profile/test-email", { to });
+export const sendTestSMS     = (to)     => api.post("/ca/profile/test-sms", { to });
 
 // ── Firm Team (CA Users) ──────────────────────────────────────────────────────
 export const listFirmMembers    = ()                       => api.get("/ca/users");

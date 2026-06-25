@@ -19,6 +19,8 @@ router.use(requireCA);   // any of ca_admin / ca_staff / ca_readonly
 // ── CA Profile (firm settings — ITD credentials, firm name) — admin only ────
 router.get("/profile", requireCAAdmin, profileCtrl.getCAProfile);
 router.put("/profile", requireCAAdmin, profileCtrl.updateCAProfile);
+router.post("/profile/test-email", requireCAAdmin, profileCtrl.sendTestEmail);
+router.post("/profile/test-sms",   requireCAAdmin, profileCtrl.sendTestSMS);
 
 // ── Firm Team (CA Users) ──────────────────────────────────────────────────────
 router.get("/users",                     inviteCtrl.listFirmMembers);            // all CA roles can view the roster
@@ -40,8 +42,11 @@ router.get("/clients/:clientId/invite-portal",  clientInviteCtrl.getInviteStatus
 
 // ── CA Filing on behalf of a client ──────────────────────────────────────────
 // ca_staff can prepare drafts; only ca_admin can finalize the submission.
-router.post("/clients/:clientId/draft",   requireFeature("ITR_1"), requireCAWrite, filingCtrl.saveDraftForClient);
-router.post("/clients/:clientId/submit",  requireFeature("ITR_1"), requireCAAdmin, filingCtrl.submitITR1ForClient);
+router.post("/clients/:clientId/draft",        requireFeature("ITR_1"), requireCAWrite, filingCtrl.saveDraftForClient);
+router.post("/clients/:clientId/submit",       requireFeature("ITR_1"), requireCAAdmin, filingCtrl.submitITR1ForClient);
+router.post("/clients/:clientId/draft/itr2",   requireFeature("ITR_2"), requireCAWrite, filingCtrl.saveDraftITR2ForClient);
+router.post("/clients/:clientId/submit/itr2",  requireFeature("ITR_2"), requireCAAdmin, filingCtrl.submitITR2ForClient);
 router.get("/clients/:clientId/filings",  filingCtrl.getClientFilings);
+router.get("/clients/:clientId/filings/:filingId/refund", filingCtrl.getClientFilingRefund);
 
 export default router;

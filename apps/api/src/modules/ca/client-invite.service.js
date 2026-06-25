@@ -8,6 +8,7 @@ import ClientInvite from "./client-invite.model.js";
 import { env } from "../../config/env.js";
 import { sendMail, clientPortalInviteEmail } from "../../utils/email.util.js";
 import { sendSMS, clientPortalInviteSMS } from "../../utils/sms.util.js";
+import { getFirmCommsConfig } from "./ca-firm.service.js";
 
 const INVITE_EXPIRY_DAYS = 7;
 
@@ -60,6 +61,7 @@ export const createClientInvite = async (caId, clientId, invitedByUserId) => {
   const firmName = ca?.caFirmId
     ? (await CAFirm.findById(ca.caFirmId).select("firmName").lean())?.firmName || null
     : null;
+  const { emailConfig, smsConfig } = await getFirmCommsConfig(ca?.caFirmId);
 
   await sendMail({
     to: client.email,
@@ -70,12 +72,14 @@ export const createClientInvite = async (caId, clientId, invitedByUserId) => {
       token:      invite.token,
       appUrl:     env.appUrl,
     }),
+    firmEmailConfig: emailConfig,
   });
 
   if (client.mobile) {
     await sendSMS({
       to:   client.mobile,
       body: clientPortalInviteSMS(client.fullName, `${env.appUrl}/client-portal/join/${invite.token}`),
+      firmSmsConfig: smsConfig,
     });
   }
 

@@ -33,6 +33,10 @@ vi.mock("./ca-firm.model.js", () => ({
   },
 }));
 
+vi.mock("./ca-firm.service.js", () => ({
+  getFirmCommsConfig: vi.fn().mockResolvedValue({ emailConfig: null, smsConfig: null }),
+}));
+
 vi.mock("../../config/env.js", () => ({
   env: {
     jwtSecret:    "test-secret",

@@ -1,5 +1,6 @@
 import Filing from "./filing.model.js";
 import { compareRegimes, compareRegimesWithCapitalGains } from "../tax-engine/engine.service.js";
+import { computeRefundStatus } from "./refund.service.js";
 import { CURRENT_AY, DEDUCTION_LIMITS } from "@itr-app/shared-types";
 import { encrypt, decrypt } from "../../utils/encryption.js";
 import crypto from "crypto";
@@ -254,9 +255,10 @@ export const getFilingById = async (userId, filingId) => {
 
 export const saveDraftForClient = async (caId, clientId, { itrType, assessmentYear, step, data }, actingUserId = caId) => {
   const filter = { userId: caId, caClientId: clientId, itrType, assessmentYear };
+  const dataField = itrType === "ITR-2" ? "itr2Data" : "itr1Data";
   const filing = await Filing.findOneAndUpdate(
     filter,
-    { $set: { status: "draft", itr1Data: encryptPII(data), preparedByCa: actingUserId, caClientId: clientId } },
+    { $set: { status: "draft", [dataField]: encryptPII(data), preparedByCa: actingUserId, caClientId: clientId } },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
   return withDecryptedPII(filing);
@@ -295,7 +297,65 @@ export const submitITR1ForClient = async (caId, clientId, { personalInfo, income
   return { filing: withDecryptedPII(filing), acknowledgementNo: ackNo, taxSummary: selectedTax };
 };
 
+export const submitITR2ForClient = async (caId, clientId, { personalInfo, incomeDetails, houseProperties, capitalGains, deductions, selectedRegime }, actingUserId = caId) => {
+  const grossIncome = computeGrossSalary(incomeDetails);
+  const { letOutNetIncome, selfOccupiedInterest } = computeHousePropertyBreakdown(houseProperties);
+  const otherIncome = (incomeDetails.interestIncome || 0) + (incomeDetails.otherIncome || 0) + letOutNetIncome;
+
+  const taxResult = compareRegimesWithCapitalGains({
+    grossIncome,
+    otherIncome,
+    capitalGains,
+    deductions: { ...deductions, hra: deductions.hra_exempt, homeLoanInterest: selfOccupiedInterest },
+    dateOfBirth: personalInfo.dateOfBirth || null,
+  });
+
+  const selectedTax = taxResult[selectedRegime];
+  const ackNo = `ITR2CA${Date.now()}${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+
+  const cappedSelfOccupiedInterest = selectedRegime === "old"
+    ? Math.min(selfOccupiedInterest, 200000)
+    : 0;
+  const housePropertyNetIncome = letOutNetIncome - cappedSelfOccupiedInterest;
+
+  const rawItr2Data = {
+    ...personalInfo,
+    ...incomeDetails,
+    grossSalary: grossIncome,
+    houseProperties,
+    housePropertyNetIncome,
+    capitalGains,
+    ...deductions,
+    selectedRegime,
+    taxComputation: selectedTax,
+  };
+
+  const filing = await Filing.findOneAndUpdate(
+    { userId: caId, caClientId: clientId, itrType: "ITR-2", assessmentYear: CURRENT_AY },
+    {
+      $set: {
+        status:            "submitted",
+        itr2Data:          encryptPII(rawItr2Data),
+        submittedAt:       new Date(),
+        acknowledgementNo: ackNo,
+        preparedByCa:      actingUserId,
+        caClientId:        clientId,
+        approvalStatus:    "not_sent",
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+
+  return { filing: withDecryptedPII(filing), acknowledgementNo: ackNo, taxSummary: selectedTax };
+};
+
 export const getClientFilings = async (caId, clientId) => {
   const filings = await Filing.find({ userId: caId, caClientId: clientId }).sort({ createdAt: -1 }).lean();
   return filings.map((f) => withDecryptedPII(f));
+};
+
+export const getClientFilingRefund = async (caId, clientId, filingId) => {
+  const filing = await Filing.findOne({ _id: filingId, userId: caId, caClientId: clientId });
+  if (!filing) throw Object.assign(new Error("Filing not found"), { status: 404 });
+  return computeRefundStatus(filing);
 };

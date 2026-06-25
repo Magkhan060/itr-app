@@ -24,6 +24,9 @@ const fmt = (n) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })
     .format(n || 0);
 
+// A Filing only ever has one of itr1Data/itr2Data populated, selected by itrType.
+const getFilingData = (filing) => (filing?.itrType === "ITR-2" ? filing?.itr2Data : filing?.itr1Data) || {};
+
 const EVC_METHODS = [
   {
     value: "aadhaar_otp",
@@ -91,14 +94,12 @@ export default function EFilingPage() {
       getMyFilings()
         .then((res) => {
           const filings = res.data || [];
-          // Pick the most recent submitted ITR-1 that hasn't been e-filed yet
+          // Pick the most recent submitted filing (any ITR type) that hasn't been e-filed yet
           const target = filings.find(
-            (f) => f.itrType === "ITR-1" && f.status === "submitted" && f.efilingStatus !== "submitted"
+            (f) => f.status === "submitted" && f.efilingStatus !== "submitted"
           );
           // If already e-filed, show the acknowledgement
-          const efiled = filings.find(
-            (f) => f.itrType === "ITR-1" && f.efilingStatus === "submitted"
-          );
+          const efiled = filings.find((f) => f.efilingStatus === "submitted");
           setFiling(target || efiled || null);
         })
         .catch(() => setError("Failed to load your filings. Please try again."))
@@ -109,7 +110,7 @@ export default function EFilingPage() {
   // ── Step 0: Review ───────────────────────────────────────────────────────
   const ReviewStep = () => {
     if (!filing) return null;
-    const d   = filing.itr1Data || {};
+    const d   = getFilingData(filing);
     const tax = d.taxComputation || {};
 
     return (
@@ -118,7 +119,7 @@ export default function EFilingPage() {
           type="info"
           showIcon
           icon={<SafetyCertificateOutlined />}
-          message="Review your ITR-1 before submitting to the Income Tax Department"
+          message={`Review your ${filing.itrType || "ITR-1"} before submitting to the Income Tax Department`}
           description="Once submitted, you cannot modify this return. Verify all figures carefully."
           style={{ marginBottom: 24, borderRadius: 8 }}
         />
@@ -196,7 +197,7 @@ export default function EFilingPage() {
     setOtpLoading(true);
     setError(null);
     try {
-      const res = await generateEVC({ pan: filing.itr1Data.pan, method: evcMethod });
+      const res = await generateEVC({ pan: getFilingData(filing).pan, method: evcMethod });
       setRequestId(res.data.requestId);
       setMockMode(res.data.mockMode || false);
       setOtpSent(true);
@@ -212,7 +213,7 @@ export default function EFilingPage() {
       const values = await form.validateFields(["otp"]);
       setOtpLoading(true);
       setError(null);
-      const res = await validateEVC({ requestId, otp: values.otp, pan: filing.itr1Data.pan });
+      const res = await validateEVC({ requestId, otp: values.otp, pan: getFilingData(filing).pan });
       setEvc(res.data.evc);
       setMockMode(res.data.mockMode || false);
     } catch (err) {
@@ -369,7 +370,7 @@ export default function EFilingPage() {
       const url  = URL.createObjectURL(new Blob([blob], { type: "application/xml" }));
       const a    = document.createElement("a");
       a.href     = url;
-      a.download = `ITR1_${filing._id}.xml`;
+      a.download = `${(filing.itrType || "ITR1").replace("-", "")}_${filing._id}.xml`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -389,7 +390,7 @@ export default function EFilingPage() {
         message="Ready to submit to the Income Tax Department"
         description={
           <>
-            <div>PAN: <Text code>{filing?.itr1Data?.pan}</Text></div>
+            <div>PAN: <Text code>{getFilingData(filing).pan}</Text></div>
             <div style={{ marginTop: 4 }}>AY: <strong>{filing?.assessmentYear}</strong></div>
             <div style={{ marginTop: 4 }}>
               EVC Method:{" "}
@@ -478,7 +479,7 @@ export default function EFilingPage() {
               const url = URL.createObjectURL(new Blob([blob], { type: "application/xml" }));
               const a   = document.createElement("a");
               a.href     = url;
-              a.download = `ITR1_${filing._id}.xml`;
+              a.download = `${(filing.itrType || "ITR1").replace("-", "")}_${filing._id}.xml`;
               a.click();
               URL.revokeObjectURL(url);
             }).catch(() => {})}
@@ -496,7 +497,7 @@ export default function EFilingPage() {
       <Result
         status="success"
         icon={<SafetyCertificateOutlined style={{ color: "#52c41a" }} />}
-        title="ITR-1 Filed with the Income Tax Department!"
+        title={`${filing?.itrType || "ITR-1"} Filed with the Income Tax Department!`}
         subTitle={
           <div>
             <p>
@@ -532,7 +533,7 @@ export default function EFilingPage() {
               const url = URL.createObjectURL(new Blob([blob], { type: "application/xml" }));
               const a   = document.createElement("a");
               a.href     = url;
-              a.download = `ITR1_${filing._id}.xml`;
+              a.download = `${(filing?.itrType || "ITR1").replace("-", "")}_${filing._id}.xml`;
               a.click();
               URL.revokeObjectURL(url);
             }).catch(() => {})}
@@ -577,12 +578,12 @@ export default function EFilingPage() {
     <div>
       <PageHeader
         icon={<SafetyCertificateOutlined />}
-        title="e-File ITR-1"
+        title={`e-File ${filing.itrType || "ITR-1"}`}
         period={`AY ${filing.assessmentYear}`}
         subtitle={
           <Text type="secondary">
             Submit to Income Tax Department ·{" "}
-            <Text code>{filing.itr1Data?.pan}</Text>
+            <Text code>{getFilingData(filing).pan}</Text>
           </Text>
         }
       />

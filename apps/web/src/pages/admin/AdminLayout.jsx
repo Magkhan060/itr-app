@@ -2,10 +2,11 @@ import React from "react";
 import { Tabs, Typography, Space, Tag } from "antd";
 import {
   DashboardOutlined, TeamOutlined, ControlOutlined, AuditOutlined,
-  FileTextOutlined, CrownOutlined,
+  FileTextOutlined, CrownOutlined, BankOutlined,
 } from "@ant-design/icons";
 import AdminDashboard from "./AdminDashboard.jsx";
 import AdminUsers     from "./AdminUsers.jsx";
+import AdminFirms     from "./AdminFirms.jsx";
 import AdminFlags     from "./AdminFlags.jsx";
 import AdminAuditLog  from "./AdminAuditLog.jsx";
 import Dashboard      from "../dashboard/Dashboard.jsx";
@@ -23,6 +24,11 @@ const TABS = [
     key:      "users",
     label:    <Space><TeamOutlined /> Users</Space>,
     children: <AdminUsers />,
+  },
+  {
+    key:      "firms",
+    label:    <Space><BankOutlined /> CA Firms</Space>,
+    children: <AdminFirms />,
   },
   {
     key:      "flags",

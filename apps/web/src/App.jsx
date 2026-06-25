@@ -16,6 +16,7 @@ const CADashboard     = React.lazy(() => import("./pages/ca/CADashboard.jsx"));
 const AddEditClient   = React.lazy(() => import("./pages/ca/clients/AddEditClient.jsx"));
 const ClientWorkspace = React.lazy(() => import("./pages/ca/clients/ClientWorkspace.jsx"));
 const CAITRFiling     = React.lazy(() => import("./pages/ca/filing/CAITRFiling.jsx"));
+const CAITR2Filing    = React.lazy(() => import("./pages/ca/filing/CAITR2Filing.jsx"));
 const ApprovePage     = React.lazy(() => import("./pages/approve/ApprovePage.jsx"));
 const JoinFirm        = React.lazy(() => import("./pages/auth/JoinFirm.jsx"));
 const JoinClientPortal = React.lazy(() => import("./pages/auth/JoinClientPortal.jsx"));
@@ -106,6 +107,7 @@ export default function App() {
           <Route path="ca/clients/:clientId"                element={<ClientWorkspace />} />
           <Route path="ca/clients/:clientId/edit"           element={<AddEditClient />} />
           <Route path="ca/clients/:clientId/itr1"           element={<CAITRFiling />} />
+          <Route path="ca/clients/:clientId/itr2"           element={<CAITR2Filing />} />
           <Route path="profile" element={<Profile />} />
           <Route path="advance-tax" element={<AdvanceTax />} />
           <Route path="refund-tracker" element={<RefundTracker />} />

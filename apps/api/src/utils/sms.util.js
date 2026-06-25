@@ -1,6 +1,8 @@
+import axios from "axios";
 import { env } from "../config/env.js";
 
-// Initialise the Twilio client once if credentials are present.
+// Initialise the Twilio client once if credentials are present — this is
+// the platform default, used when a firm hasn't configured its own gateway.
 // If absent the app still starts — sendSMS logs to console instead.
 let twilioClient = null;
 
@@ -13,9 +15,29 @@ if (env.twilioSid && env.twilioToken) {
   }
 }
 
-export const sendSMS = async ({ to, body }) => {
+// MSG91 — a plain HTTP REST API, no SDK needed. Relevant for Indian SMS in
+// particular: TRAI's DLT framework requires a pre-registered sender ID and
+// template with a DLT-compliant gateway, which Twilio is not by default.
+const sendViaMsg91 = async ({ to, body, apiKey, senderId, route }) => {
+  const phone = to.startsWith("+") ? to.replace("+", "") : `91${to}`;
+  const res = await axios.post(
+    "https://api.msg91.com/api/v5/flow/",
+    { mobile: phone, sender: senderId, route: route || "4", sms: body },
+    { headers: { authkey: apiKey, "Content-Type": "application/json" } }
+  );
+  return res.data;
+};
+
+// `firmSmsConfig` is the already-decrypted config object for a CAFirm that
+// configured its own SMS gateway (see ca-firm.service.js's
+// getFirmCommsConfig) — undefined/null means "use the platform default".
+export const sendSMS = async ({ to, body, firmSmsConfig }) => {
   const phone = to.startsWith("+") ? to : `+91${to}`;
   try {
+    if (firmSmsConfig?.provider === "msg91") {
+      return await sendViaMsg91({ to, body, ...firmSmsConfig });
+    }
+
     if (!twilioClient) {
       console.log(`[SMS MOCK] To: ${phone} | ${body}`);
       return { mock: true };

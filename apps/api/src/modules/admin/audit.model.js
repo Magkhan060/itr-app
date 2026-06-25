@@ -10,7 +10,7 @@ const auditLogSchema = new mongoose.Schema(
     action: {
       type:    String,
       required: true,
-      enum:    ["ROLE_CHANGE", "USER_ACTIVATED", "USER_DEACTIVATED", "FLAG_TOGGLED"],
+      enum:    ["ROLE_CHANGE", "USER_ACTIVATED", "USER_DEACTIVATED", "FLAG_TOGGLED", "FIRM_ACTIVATED", "FIRM_DEACTIVATED"],
     },
     targetId: {
       type: mongoose.Schema.Types.ObjectId,

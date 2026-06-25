@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import Filing    from "../itr/filing.model.js";
 import CAClient  from "../ca/ca-client.model.js";
 import User      from "../auth/auth.model.js";
-import { getFirmById } from "../ca/ca-firm.service.js";
+import { getFirmById, getFirmCommsConfig } from "../ca/ca-firm.service.js";
 import { sendMail, approvalRequestEmail, approvalResponseEmail } from "../../utils/email.util.js";
 import { sendSMS, approvalSMS, approvalResponseSMS } from "../../utils/sms.util.js";
 import { env } from "../../config/env.js";
@@ -19,6 +19,7 @@ export const sendApprovalRequest = async (caId, filingId) => {
 
   const ca   = await User.findById(caId).select("fullName caFirmId email").lean();
   const firm = await getFirmById(ca?.caFirmId);
+  const { emailConfig, smsConfig } = await getFirmCommsConfig(ca?.caFirmId);
 
   const token = randomUUID();
   await Filing.findByIdAndUpdate(filingId, {
@@ -29,10 +30,11 @@ export const sendApprovalRequest = async (caId, filingId) => {
     },
   });
 
+  const filingData = filing.itrType === "ITR-2" ? filing.itr2Data : filing.itr1Data;
   const taxSummary = {
-    grossSalary: filing.itr1Data?.grossSalary,
-    totalTax:    filing.itr1Data?.taxComputation?.totalTax,
-    tdsDeducted: filing.itr1Data?.tdsDeducted,
+    grossSalary: filingData?.grossSalary,
+    totalTax:    filingData?.taxComputation?.totalTax,
+    tdsDeducted: filingData?.tdsDeducted,
   };
 
   // Send email
@@ -46,7 +48,7 @@ export const sendApprovalRequest = async (caId, filingId) => {
       taxSummary,
       appUrl:     env.appUrl,
     });
-    await sendMail({ to: client.email, ...template });
+    await sendMail({ to: client.email, ...template, firmEmailConfig: emailConfig });
   }
 
   // Send SMS
@@ -54,6 +56,7 @@ export const sendApprovalRequest = async (caId, filingId) => {
     await sendSMS({
       to:   client.mobile,
       body: approvalSMS(client.fullName, `${env.appUrl}/approve/${token}`),
+      firmSmsConfig: smsConfig,
     });
   }
 
@@ -64,7 +67,7 @@ export const sendApprovalRequest = async (caId, filingId) => {
 
 export const getApprovalSummary = async (token) => {
   const filing = await Filing.findOne({ approvalToken: token })
-    .select("itr1Data assessmentYear approvalStatus acknowledgementNo caClientId preparedByCa")
+    .select("itr1Data itr2Data itrType assessmentYear approvalStatus acknowledgementNo caClientId preparedByCa")
     .lean();
   if (!filing) throw Object.assign(new Error("Approval link is invalid or has expired"), { status: 404 });
 
@@ -72,11 +75,13 @@ export const getApprovalSummary = async (token) => {
   const ca     = await User.findById(filing.preparedByCa).select("fullName caFirmId email").lean();
   const firm   = await getFirmById(ca?.caFirmId);
 
-  const d   = filing.itr1Data || {};
+  const isITR2 = filing.itrType === "ITR-2";
+  const d   = (isITR2 ? filing.itr2Data : filing.itr1Data) || {};
   const tax = d.taxComputation || {};
 
   return {
     filingId:       filing._id,
+    itrType:        filing.itrType,
     approvalStatus: filing.approvalStatus,
     assessmentYear: filing.assessmentYear,
     client: { fullName: client?.fullName, pan: client?.pan },
@@ -111,6 +116,12 @@ export const getApprovalSummary = async (token) => {
       // Bank (last 4 digits only for security)
       bankLast4:      d.bankAccountNo ? String(d.bankAccountNo).slice(-4) : "",
       bankIFSC:       d.ifscCode || "",
+      // ITR-2 only — house property & equity capital gains (absent on ITR-1)
+      ...(isITR2 && {
+        houseProperties:        d.houseProperties || [],
+        housePropertyNetIncome: d.housePropertyNetIncome || 0,
+        capitalGains:           tax.capitalGains || null,
+      }),
     },
   };
 };
@@ -135,14 +146,15 @@ export const respondToApproval = async (token, { action, comment }) => {
 
   // Notify the CA
   const client = await CAClient.findById(filing.caClientId).select("fullName mobile").lean();
-  const ca     = await User.findById(filing.preparedByCa).select("fullName email mobile").lean();
+  const ca     = await User.findById(filing.preparedByCa).select("fullName email mobile caFirmId").lean();
+  const { emailConfig, smsConfig } = await getFirmCommsConfig(ca?.caFirmId);
 
   if (ca?.email) {
     const template = approvalResponseEmail({ caName: ca.fullName, clientName: client?.fullName, status, comment });
-    await sendMail({ to: ca.email, ...template });
+    await sendMail({ to: ca.email, ...template, firmEmailConfig: emailConfig });
   }
   if (ca?.mobile) {
-    await sendSMS({ to: ca.mobile, body: approvalResponseSMS(client?.fullName, status) });
+    await sendSMS({ to: ca.mobile, body: approvalResponseSMS(client?.fullName, status), firmSmsConfig: smsConfig });
   }
 
   return { status, filingId: filing._id };

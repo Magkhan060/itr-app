@@ -13,13 +13,14 @@ import {
   EyeInvisibleOutlined, EyeTwoTone, UserAddOutlined, MailOutlined,
   StopOutlined, CheckOutlined, CrownOutlined, EyeOutlined,
   EditOutlined, DeleteOutlined, ExclamationCircleOutlined,
-  CalendarOutlined, DollarOutlined,
+  CalendarOutlined, DollarOutlined, MessageOutlined,
 } from "@ant-design/icons";
 import { Timeline } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/index.js";
 import {
   listClients, deleteClient, getCAProfile, updateCAProfile,
+  sendTestEmail, sendTestSMS,
   listFirmMembers, inviteFirmMember, revokeInvite, updateMemberRole, toggleMemberActive,
 } from "../../services/ca.service.js";
 import ClientForm from "./clients/ClientForm.jsx";
@@ -63,6 +64,15 @@ function CASettingsPanel() {
   const [saving, setSaving]       = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [keyConfigured, setKeyConfigured] = useState(false);
+  const [emailConfigured, setEmailConfigured] = useState(false);
+  const [smsConfigured, setSmsConfigured]     = useState(false);
+  const [testEmailTo, setTestEmailTo] = useState("");
+  const [testSmsTo, setTestSmsTo]     = useState("");
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [testingSms, setTestingSms]     = useState(false);
+
+  const emailProvider = Form.useWatch("emailProvider", form);
+  const smsProvider   = Form.useWatch("smsProvider", form);
 
   useEffect(() => {
     getCAProfile()
@@ -73,8 +83,14 @@ function CASettingsPanel() {
           caMemberNo:     p.caMemberNo,
           caItdApiBaseUrl: p.caItdApiBaseUrl,
           caItdApiKey:    "",  // never pre-fill — user must re-enter to change
+          emailProvider:  p.emailProvider,
+          emailConfig:    { ...p.emailConfig, pass: "" }, // pass never pre-filled
+          smsProvider:    p.smsProvider,
+          smsConfig:      { ...p.smsConfig, apiKey: "" }, // apiKey never pre-filled
         });
         setKeyConfigured(p.caItdApiKeyConfigured);
+        setEmailConfigured(p.emailConfigured);
+        setSmsConfigured(p.smsConfigured);
         setProfileLoaded(true);
       })
       .catch(() => message.error("Failed to load profile"));
@@ -87,19 +103,56 @@ function CASettingsPanel() {
         caFirmName:      values.caFirmName,
         caMemberNo:      values.caMemberNo,
         caItdApiBaseUrl: values.caItdApiBaseUrl || "",
+        emailProvider:   values.emailProvider,
+        smsProvider:     values.smsProvider,
       };
       // Only send the key field if the user typed something (empty = no change)
       if (values.caItdApiKey !== undefined) {
         payload.caItdApiKey = values.caItdApiKey;
       }
+      if (values.emailProvider === "smtp") payload.emailConfig = values.emailConfig;
+      if (values.smsProvider === "msg91")   payload.smsConfig   = values.smsConfig;
+
       const res = await updateCAProfile(payload);
       setKeyConfigured(res.data.caItdApiKeyConfigured);
-      form.setFieldsValue({ caItdApiKey: "" });
+      setEmailConfigured(res.data.emailConfigured);
+      setSmsConfigured(res.data.smsConfigured);
+      form.setFieldsValue({
+        caItdApiKey: "",
+        emailConfig: { ...res.data.emailConfig, pass: "" },
+        smsConfig:   { ...res.data.smsConfig, apiKey: "" },
+      });
       message.success("Profile saved");
     } catch (err) {
       message.error(err.message || "Save failed");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmailTo) return message.warning("Enter a recipient email first");
+    setTestingEmail(true);
+    try {
+      await sendTestEmail(testEmailTo);
+      message.success(`Test email sent to ${testEmailTo}`);
+    } catch (err) {
+      message.error(err.response?.data?.error || err.message || "Test email failed");
+    } finally {
+      setTestingEmail(false);
+    }
+  };
+
+  const handleTestSms = async () => {
+    if (!testSmsTo) return message.warning("Enter a recipient mobile number first");
+    setTestingSms(true);
+    try {
+      await sendTestSMS(testSmsTo);
+      message.success(`Test SMS sent to ${testSmsTo}`);
+    } catch (err) {
+      message.error(err.response?.data?.error || err.message || "Test SMS failed");
+    } finally {
+      setTestingSms(false);
     }
   };
 
@@ -182,6 +235,201 @@ function CASettingsPanel() {
           style={{ borderRadius: 8 }}
           message="The API key is encrypted with AES-256 before storage and is never returned in API responses."
         />
+      </Card>
+
+      {/* ── Email Provider ───────────────────────────────────── */}
+      <Card
+        variant="borderless"
+        style={{ borderRadius: 10, marginBottom: 20 }}
+        title={
+          <Space>
+            <MailOutlined style={{ color: "#1677ff" }} />
+            <span>Email Provider</span>
+            {emailProvider === "smtp"
+              ? <Tag color="success" icon={<CheckCircleOutlined />}>Custom SMTP{emailConfigured ? " Configured" : ""}</Tag>
+              : <Tag color="default">Using Platform Default (Gmail)</Tag>
+            }
+          </Space>
+        }
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16, borderRadius: 8 }}
+          message="Optional — bring your own mail server."
+          description="By default, client approval/invite emails are sent from the platform's shared Gmail account. Configure your own SMTP server (Office 365, Zoho Mail, Amazon SES, your own domain, etc.) to send from your firm's own address instead."
+        />
+        <Form.Item label="Provider" name="emailProvider">
+          <Select>
+            <Select.Option value="platform">Platform Default (Gmail)</Select.Option>
+            <Select.Option value="smtp">Custom SMTP</Select.Option>
+          </Select>
+        </Form.Item>
+
+        {emailProvider === "smtp" && (
+          <>
+            <Row gutter={12}>
+              <Col span={16}>
+                <Form.Item label="SMTP Host" name={["emailConfig", "host"]}>
+                  <Input placeholder="smtp.office365.com" />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item label="Port" name={["emailConfig", "port"]}>
+                  <Input placeholder="587" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Form.Item label="Use TLS/SSL (secure)" name={["emailConfig", "secure"]} valuePropName="checked">
+              <Select style={{ maxWidth: 160 }}>
+                <Select.Option value={false}>No (STARTTLS)</Select.Option>
+                <Select.Option value={true}>Yes</Select.Option>
+              </Select>
+            </Form.Item>
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item label="Username" name={["emailConfig", "user"]}>
+                  <Input placeholder="notifications@yourfirm.com" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  label={
+                    <Space>
+                      <span>Password</span>
+                      {emailConfigured && (
+                        <Tooltip title="A password is already stored. Enter a new value to replace it, or leave blank to keep it.">
+                          <Tag color="green" style={{ fontSize: 11 }}>●&nbsp;Stored</Tag>
+                        </Tooltip>
+                      )}
+                    </Space>
+                  }
+                  name={["emailConfig", "pass"]}
+                >
+                  <Input.Password
+                    placeholder={emailConfigured ? "Enter new password to replace existing" : "SMTP password"}
+                    iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item label="From Address" name={["emailConfig", "fromAddress"]}>
+                  <Input placeholder="notifications@yourfirm.com" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="From Name (optional)" name={["emailConfig", "fromName"]}>
+                  <Input placeholder="Kumar & Associates" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Space style={{ marginTop: 4 }}>
+              <Input
+                placeholder="Send a test email to…"
+                style={{ width: 240 }}
+                value={testEmailTo}
+                onChange={(e) => setTestEmailTo(e.target.value)}
+              />
+              <Button
+                icon={<SendOutlined />}
+                loading={testingEmail}
+                disabled={!emailConfigured}
+                onClick={handleTestEmail}
+              >
+                Send Test Email
+              </Button>
+            </Space>
+            {!emailConfigured && (
+              <div><Text type="secondary" style={{ fontSize: 12 }}>Save your SMTP settings first to enable test sending.</Text></div>
+            )}
+          </>
+        )}
+      </Card>
+
+      {/* ── SMS Provider ──────────────────────────────────────── */}
+      <Card
+        variant="borderless"
+        style={{ borderRadius: 10, marginBottom: 20 }}
+        title={
+          <Space>
+            <MessageOutlined style={{ color: "#13c2c2" }} />
+            <span>SMS Provider</span>
+            {smsProvider === "msg91"
+              ? <Tag color="success" icon={<CheckCircleOutlined />}>MSG91{smsConfigured ? " Configured" : ""}</Tag>
+              : <Tag color="default">Using Platform Default (Twilio)</Tag>
+            }
+          </Space>
+        }
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16, borderRadius: 8 }}
+          message="Optional — bring your own SMS gateway."
+          description="Indian SMS delivery is regulated by TRAI's DLT framework — sender IDs and templates must be pre-registered with a DLT-compliant gateway, which the platform's default (Twilio) is not. If you need real SMS delivery to Indian numbers, configure your own MSG91 account here."
+        />
+        <Form.Item label="Provider" name="smsProvider">
+          <Select>
+            <Select.Option value="platform">Platform Default (Twilio)</Select.Option>
+            <Select.Option value="msg91">MSG91</Select.Option>
+          </Select>
+        </Form.Item>
+
+        {smsProvider === "msg91" && (
+          <>
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item
+                  label={
+                    <Space>
+                      <span>MSG91 API Key</span>
+                      {smsConfigured && (
+                        <Tooltip title="An API key is already stored. Enter a new value to replace it, or leave blank to keep it.">
+                          <Tag color="green" style={{ fontSize: 11 }}>●&nbsp;Stored</Tag>
+                        </Tooltip>
+                      )}
+                    </Space>
+                  }
+                  name={["smsConfig", "apiKey"]}
+                >
+                  <Input.Password
+                    placeholder={smsConfigured ? "Enter new key to replace existing" : "Paste your MSG91 auth key"}
+                    iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="Sender ID" name={["smsConfig", "senderId"]}>
+                  <Input placeholder="e.g. KMRASC (6-char DLT-approved sender ID)" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Form.Item label="Route (optional)" name={["smsConfig", "route"]}>
+              <Input placeholder="4 (transactional, default)" style={{ maxWidth: 220 }} />
+            </Form.Item>
+            <Space style={{ marginTop: 4 }}>
+              <Input
+                placeholder="Send a test SMS to… (10-digit mobile)"
+                style={{ width: 240 }}
+                value={testSmsTo}
+                onChange={(e) => setTestSmsTo(e.target.value)}
+              />
+              <Button
+                icon={<SendOutlined />}
+                loading={testingSms}
+                disabled={!smsConfigured}
+                onClick={handleTestSms}
+              >
+                Send Test SMS
+              </Button>
+            </Space>
+            {!smsConfigured && (
+              <div><Text type="secondary" style={{ fontSize: 12 }}>Save your MSG91 settings first to enable test sending.</Text></div>
+            )}
+          </>
+        )}
       </Card>
 
       <Button type="primary" htmlType="submit" loading={saving} size="large">
